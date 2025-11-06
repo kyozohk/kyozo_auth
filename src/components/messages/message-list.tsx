@@ -6,18 +6,22 @@ import { useFirestore } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Send } from 'lucide-react';
+import { ChevronLeft, Copy, Send } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useUser } from '@/firebase';
 import { Input } from '../ui/input';
 import { setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+
 
 interface Message {
   id: string;
   text: string;
   createdAt: any;
   sender: string; // user ID
+  [key: string]: any;
 }
 
 interface Channel {
@@ -45,6 +49,7 @@ interface MessageListProps {
 export function MessageList({ currentUserId, selectedUserId, selectedUserName, selectedCommunityId, onBack }: MessageListProps) {
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
+  const { toast } = useToast();
   const [channelId, setChannelId] = useState<string | null>(null);
   const [userProfiles, setUserProfiles] = useState<Record<string, UserProfile>>({});
   const [isLoadingChannel, setIsLoadingChannel] = useState(true);
@@ -59,6 +64,9 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
         }
         setIsLoadingChannel(true);
         const channelsRef = collection(firestore, 'channels');
+        
+        // Firestore doesn't support querying for two different 'array-contains' on the same field.
+        // We query for one user and then filter the results on the client.
         const q = query(
             channelsRef, 
             where('community', '==', selectedCommunityId),
@@ -93,8 +101,8 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
     return query(
       collection(firestore, 'messages'),
       where('channel', '==', channelId),
-      orderBy('createdAt', 'desc'),
-      limit(50)
+      orderBy('createdAt', 'asc'),
+      limit(100)
     );
   }, [channelId, firestore]);
 
@@ -113,25 +121,32 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
         const idsToFetch = senderIds.filter(id => !userProfiles[id]);
         if (idsToFetch.length === 0) return;
 
-        // Use 'in' query for efficiency
-        const usersQuery = query(collection(firestore, 'users'), where('id', 'in', idsToFetch));
-        const upperUsersQuery = query(collection(firestore, 'Users'), where('id', 'in', idsToFetch));
-        
-        const [usersSnapshot, upperUsersSnapshot] = await Promise.all([
-            getDocs(usersQuery),
-            getDocs(upperUsersQuery)
-        ]);
-
         const newProfiles: Record<string, UserProfile> = {};
+
+        const fetchChunk = async (chunk: string[]) => {
+            const usersQuery = query(collection(firestore, 'users'), where('id', 'in', chunk));
+            const upperUsersQuery = query(collection(firestore, 'Users'), where('id', 'in', chunk));
+            
+            const [usersSnapshot, upperUsersSnapshot] = await Promise.all([
+                getDocs(usersQuery),
+                getDocs(upperUsersQuery)
+            ]);
+
+            usersSnapshot.forEach(doc => {
+                const data = doc.data() as UserProfile;
+                if(data.id) newProfiles[data.id] = data;
+            });
+            upperUsersSnapshot.forEach(doc => {
+                const data = doc.data() as UserProfile;
+                if(data.id && !newProfiles[data.id]) newProfiles[data.id] = data;
+            });
+        }
         
-        usersSnapshot.forEach(doc => {
-            const data = doc.data() as UserProfile;
-            if(data.id) newProfiles[data.id] = data;
-        });
-        upperUsersSnapshot.forEach(doc => {
-            const data = doc.data() as UserProfile;
-            if(data.id && !newProfiles[data.id]) newProfiles[data.id] = data;
-        });
+        // Firestore 'in' query has a limit of 30 values.
+        for (let i = 0; i < idsToFetch.length; i += 30) {
+            const chunk = idsToFetch.slice(i, i + 30);
+            await fetchChunk(chunk);
+        }
 
         if (Object.keys(newProfiles).length > 0) {
             setUserProfiles(prev => ({...prev, ...newProfiles}));
@@ -152,6 +167,14 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
         channel: channelId,
     });
     setNewMessage('');
+  };
+
+  const handleCopy = (message: Message) => {
+    navigator.clipboard.writeText(JSON.stringify(message, null, 2));
+    toast({
+      title: 'Copied to clipboard!',
+      description: 'Message JSON data has been copied.',
+    });
   };
 
   const getSenderName = (senderId: string) => {
@@ -200,24 +223,56 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
             <h2 className="text-2xl font-bold truncate">Messages with {selectedUserName}</h2>
         </div>
       
-        <div className="flex-1 overflow-y-auto mb-4 space-y-4 pr-4">
+        <div className="flex-1 overflow-y-auto mb-4 space-y-2 pr-4">
             {isLoading && renderSkeleton()}
             {error && <p className="text-destructive">Error: {error.message}</p>}
             {!isLoading && !error && messages && messages.map((message) => {
                 const senderName = getSenderName(message.sender);
+                const isSender = message.sender === currentUserId;
                 return (
-                    <div key={message.id} className="flex items-start space-x-3 p-3">
-                        <Avatar>
-                            <AvatarImage src={getSenderAvatar(message.sender)} />
-                            <AvatarFallback>{getSenderFallback(message.sender).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                            <p className="font-semibold">{senderName}</p>
-                            <p className="text-sm text-muted-foreground">
+                    <div
+                        key={message.id}
+                        className={cn(
+                            'group flex w-full items-start gap-3 relative',
+                            isSender && 'justify-end'
+                        )}
+                    >
+                        {!isSender && (
+                            <Avatar className='flex-shrink-0'>
+                                <AvatarImage src={getSenderAvatar(message.sender)} />
+                                <AvatarFallback>{getSenderFallback(message.sender).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                        )}
+                        <div className={cn('flex flex-col max-w-[80%]', isSender ? 'items-end' : 'items-start')}>
+                             <p className="font-semibold text-sm">{senderName}</p>
+                            <p className="text-xs text-muted-foreground">
                                 {message.createdAt?.toDate ? new Date(message.createdAt.toDate()).toLocaleString() : ''}
                             </p>
-                            <p className="mt-1 bg-muted p-3 rounded-lg">{message.text}</p>
+                             <div className={cn(
+                                'mt-1 inline-block rounded-lg px-3 py-2 relative',
+                                isSender ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                            )}>
+                                <p className="text-sm">{message.text}</p>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                        "h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 absolute -top-2",
+                                        isSender ? "-left-2" : "-right-2"
+                                    )}
+                                    onClick={(e) => { e.stopPropagation(); handleCopy(message); }}
+                                    title="Copy JSON"
+                                >
+                                    <Copy className="h-3 w-3" />
+                                </Button>
+                            </div>
                         </div>
+                        {isSender && (
+                            <Avatar className='flex-shrink-0'>
+                                <AvatarImage src={getSenderAvatar(message.sender)} />
+                                <AvatarFallback>{getSenderFallback(message.sender).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                        )}
                     </div>
                 )
             })}

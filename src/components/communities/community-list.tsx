@@ -96,10 +96,11 @@ export function CommunityList({ selectedCommunityId, onCommunitySelect, searchTe
                     </div>
                 </Button>
                 <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     className="h-9 w-9 flex-shrink-0"
-                    onClick={() => handleCopy(community)}
+                    onClick={(e) => { e.stopPropagation(); handleCopy(community); }}
+                    title="Copy JSON"
                 >
                     <Copy className="h-4 w-4" />
                 </Button>

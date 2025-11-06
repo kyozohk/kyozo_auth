@@ -152,7 +152,7 @@ export async function getMessagesForMember(communityId: string, memberId: string
       {
         $lookup: {
           from: 'users',
-          localField: 'user', // user on message is the sender
+          localField: 'user',
           foreignField: '_id',
           as: 'senderInfo'
         }
@@ -160,27 +160,23 @@ export async function getMessagesForMember(communityId: string, memberId: string
       { $unwind: { path: '$senderInfo', preserveNullAndEmptyArrays: true } }
     ]).toArray();
 
-    return messagesFromDb.map((m: any) => ({
-      id: m._id.toString(),
-      text: m.text,
-      createdAt: m.createdAt.toISOString(),
-      sender: m.senderInfo ? {
-        id: m.senderInfo._id.toString(),
-        uid: m.senderInfo.uid,
-        displayName: m.senderInfo.displayName || m.senderInfo.fullName,
-        photoURL: m.senderInfo.photoURL || m.senderInfo.profileImage,
-        email: m.senderInfo.email,
-        data: JSON.parse(JSON.stringify(m.senderInfo)),
-      } : { // Handle case where sender might not be in users collection or is system message
-        id: m.user?.toString() || 'unknown',
-        uid: 'unknown',
-        displayName: 'Unknown Sender',
-        photoURL: '',
-        email: '',
-        data: {},
-      },
-      data: JSON.parse(JSON.stringify(m)),
-    }));
+    return messagesFromDb.map((m: any) => {
+      const senderInfo = m.senderInfo || {};
+      return {
+        id: m._id.toString(),
+        text: m.text,
+        createdAt: m.createdAt.toISOString(),
+        sender: {
+          id: senderInfo._id?.toString() || m.user?.toString() || 'unknown',
+          uid: senderInfo.uid,
+          displayName: senderInfo.displayName || senderInfo.fullName || 'Unknown Sender',
+          photoURL: senderInfo.photoURL || senderInfo.profileImage,
+          email: senderInfo.email,
+          data: JSON.parse(JSON.stringify(senderInfo)),
+        },
+        data: JSON.parse(JSON.stringify(m)),
+      };
+    });
   } catch (error) {
     console.error(`Failed to get messages for member ${memberId} in community ${communityId}:`, error);
     return [];

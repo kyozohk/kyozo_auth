@@ -15,13 +15,14 @@ interface UserProfileData {
   lastName?: string;
   email: string;
   profileImage?: string;
+  [key: string]: any; // Allow other properties
 }
 
 interface UserProfileProps {
   userId: string;
   onSelect: (userId: string, userName: string) => void;
   isSelected?: boolean;
-  onProfileLoad?: (userId: string, name: string, email: string) => void;
+  onProfileLoad?: (userId: string, profile: UserProfileData) => void;
 }
 
 export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: UserProfileProps) {
@@ -53,9 +54,9 @@ export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: Use
 
   useEffect(() => {
     if (user && onProfileLoad) {
-      onProfileLoad(userId, fullName, user.email || '');
+      onProfileLoad(userId, user);
     }
-  }, [user, userId, fullName, onProfileLoad]);
+  }, [user, userId, onProfileLoad]);
 
 
   if (isLoading) {
@@ -89,7 +90,7 @@ export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: Use
   return (
     <Button
       variant={isSelected ? 'secondary' : 'ghost'}
-      className="flex h-auto w-full items-center justify-start p-3"
+      className="flex h-auto flex-1 items-center justify-start p-3"
       onClick={() => onSelect(userId, fullName)}
     >
       <div className="flex items-center space-x-3 text-left">
@@ -97,7 +98,7 @@ export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: Use
           <AvatarImage src={user.profileImage} alt={fullName} />
           <AvatarFallback>{fallback.toUpperCase()}</AvatarFallback>
         </Avatar>
-        <div>
+        <div className='flex-1 truncate'>
           <p className="font-semibold truncate">{fullName}</p>
           {user.email && <p className="text-sm text-muted-foreground truncate">{user.email}</p>}
         </div>

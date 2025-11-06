@@ -2,10 +2,22 @@
 import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserProfile } from '@/components/users/user-profile';
+import { Button } from '../ui/button';
+import { Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface Member {
   userId: string;
   email?: string;
+  [key: string]: any;
+}
+
+interface UserProfileData {
+  id: string;
+  name: string;
+  lastName?: string;
+  email: string;
+  profileImage?: string;
   [key: string]: any;
 }
 
@@ -17,10 +29,20 @@ interface MemberListProps {
 }
 
 export function MemberList({ members, onMemberSelect, searchTerm, selectedMemberId }: MemberListProps) {
-  const [userProfiles, setUserProfiles] = React.useState<Record<string, {name: string, email: string}>>({});
+  const [userProfiles, setUserProfiles] = React.useState<Record<string, UserProfileData>>({});
+  const { toast } = useToast();
 
-  const handleProfileLoad = (userId: string, name: string, email: string) => {
-    setUserProfiles(prev => ({...prev, [userId]: {name, email}}));
+  const handleProfileLoad = (userId: string, profile: UserProfileData) => {
+    setUserProfiles(prev => ({...prev, [userId]: profile}));
+  };
+  
+  const handleCopy = (e: React.MouseEvent, userProfile: UserProfileData) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(JSON.stringify(userProfile, null, 2));
+    toast({
+        title: 'Copied to clipboard!',
+        description: 'Member JSON data has been copied.',
+    });
   };
 
   const filteredMembers = React.useMemo(() => {
@@ -32,7 +54,7 @@ export function MemberList({ members, onMemberSelect, searchTerm, selectedMember
     return members.filter(member => {
       const profile = userProfiles[member.userId];
       if (profile) {
-        const name = profile.name || '';
+        const name = `${profile.name || ''} ${profile.lastName || ''}`.trim();
         const email = profile.email || '';
         return name.toLowerCase().includes(lowerCaseSearchTerm) || email.toLowerCase().includes(lowerCaseSearchTerm);
       }
@@ -68,13 +90,24 @@ export function MemberList({ members, onMemberSelect, searchTerm, selectedMember
       
       <div className="space-y-1 overflow-y-auto">
         {filteredMembers.map((member) => (
-          <div key={member.userId} className="flex items-center space-x-1">
+          <div key={member.userId} className="group flex items-center space-x-1">
             <UserProfile
               userId={member.userId}
               onSelect={onMemberSelect}
               isSelected={selectedMemberId === member.userId}
               onProfileLoad={handleProfileLoad}
             />
+             {userProfiles[member.userId] && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                    onClick={(e) => handleCopy(e, userProfiles[member.userId])}
+                    title="Copy JSON"
+                >
+                    <Copy className="h-4 w-4" />
+                </Button>
+            )}
           </div>
         ))}
         {members.length > 0 && filteredMembers.length === 0 && (

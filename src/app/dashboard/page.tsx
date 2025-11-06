@@ -41,17 +41,17 @@ export default function Dashboard() {
     <div className="container mx-auto px-4 py-8">
       {user && (
         <div className="flex flex-col items-center">
-          <div className="w-full max-w-7xl">
+          <div className="w-full max-w-screen-2xl">
             <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
             <p className="text-lg text-muted-foreground mb-6">
               Welcome, {user.email}!
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
               {/* Community List */}
-              <div className="md:col-span-1 lg:col-span-1">
-                <Card>
-                  <CardContent className="pt-6">
+              <div className="col-span-1">
+                <Card className='h-full'>
+                  <CardContent className="pt-6 h-full flex flex-col">
                     <div className="relative mb-4">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input
@@ -72,9 +72,9 @@ export default function Dashboard() {
               </div>
 
               {/* Member & Message Panel */}
-              <div className="md:col-span-2 lg:col-span-3">
+              <div className="col-span-1">
                 <Card className='h-full'>
-                  <CardContent className="pt-6 h-full">
+                  <CardContent className="pt-6 h-full flex flex-col">
                     {!selectedCommunity && (
                       <div className="flex flex-col items-center justify-center h-full">
                         <p className="text-muted-foreground">
@@ -83,9 +83,7 @@ export default function Dashboard() {
                       </div>
                     )}
                     {selectedCommunity && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-                        {/* Member List */}
-                        <div className='flex flex-col'>
+                      <div className='flex flex-col h-full'>
                            <div className="relative mb-4">
                               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                               <Input
@@ -103,27 +101,28 @@ export default function Dashboard() {
                               selectedMemberId={selectedMember?.id}
                             />
                         </div>
-
-                        {/* Message List or Placeholder */}
-                        <div className="flex flex-col h-full">
-                          {!selectedMember && (
-                              <div className="hidden lg:flex flex-col items-center justify-center h-full">
-                                <p className="text-muted-foreground text-center">
-                                  Select a member to view their messages.
-                                </p>
-                              </div>
-                          )}
-                          {selectedMember && user && (
-                            <MessageList
-                              currentUserId={user.uid}
-                              selectedUserId={selectedMember.id}
-                              selectedUserName={selectedMember.name}
-                              selectedCommunityId={selectedCommunity.id}
-                              onBack={() => setSelectedMember(null)}
-                            />
-                          )}
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="col-span-1">
+                <Card className='h-full'>
+                  <CardContent className="pt-6 h-full flex flex-col">
+                    {!selectedMember && (
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <p className="text-muted-foreground text-center">
+                            Select a member to view their messages.
+                          </p>
                         </div>
-                      </div>
+                    )}
+                    {selectedMember && user && (
+                      <MessageList
+                        currentUserId={user.uid}
+                        selectedUserId={selectedMember.id}
+                        selectedUserName={selectedMember.name}
+                        selectedCommunityId={selectedCommunity.id}
+                        onBack={() => setSelectedMember(null)}
+                      />
                     )}
                   </CardContent>
                 </Card>
