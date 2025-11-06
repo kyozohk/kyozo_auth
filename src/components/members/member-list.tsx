@@ -8,7 +8,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 
 interface Member {
@@ -50,7 +49,7 @@ export function MemberList({ communityId, onMemberSelect, onBack }: MemberListPr
   return (
     <div>
         <div className='flex items-center mb-4'>
-             <Button variant="ghost" size="icon" onClick={onBack} className="mr-2">
+             <Button variant="ghost" size="icon" onClick={onBack} className="mr-2 lg:hidden">
                 <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-2xl font-bold">Members</h2>
@@ -61,12 +60,13 @@ export function MemberList({ communityId, onMemberSelect, onBack }: MemberListPr
       {!isLoading && !error && members && (
         <div className="space-y-2">
           {members.map((member) => (
-            <div
+            <Button
               key={member.id}
-              className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+              variant="ghost"
+              className="flex items-center justify-start w-full h-auto p-3"
               onClick={() => onMemberSelect(member.id, member.name)}
             >
-              <div className='flex items-center space-x-3'>
+              <div className='flex items-center space-x-3 text-left'>
                 <Avatar>
                     <AvatarFallback>{member.name.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
@@ -75,8 +75,7 @@ export function MemberList({ communityId, onMemberSelect, onBack }: MemberListPr
                     <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm">View Messages</Button>
-            </div>
+            </Button>
           ))}
           {members.length === 0 && <p className='text-sm text-muted-foreground p-4 text-center'>No members found in this community.</p>}
         </div>

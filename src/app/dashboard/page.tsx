@@ -1,15 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/firebase';
+import { useUser } from '@/firebase';
 import { CommunityList } from '@/components/communities/community-list';
 import { MemberList } from '@/components/members/member-list';
 import { MessageList } from '@/components/messages/message-list';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(
     null
   );
@@ -41,28 +40,42 @@ export default function Dashboard() {
     <div className="container mx-auto px-4 py-8">
       {user && (
         <div className="flex flex-col items-center">
-          <div className="w-full max-w-5xl">
+          <div className="w-full max-w-6xl">
             <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
             <p className="text-lg text-muted-foreground mb-8">
               Welcome, {user.email}!
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="md:col-span-1 lg:col-span-1">
                 <CommunityList
                   selectedCommunityId={selectedCommunityId}
                   onCommunitySelect={handleCommunitySelect}
                 />
               </div>
-              <div className="md:col-span-2">
-                <Card>
-                  <CardContent className="pt-6">
+              <div className="md:col-span-2 lg:col-span-3">
+                <Card className='h-full'>
+                  <CardContent className="pt-6 h-full">
+                    {!selectedCommunityId && (
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <p className="text-muted-foreground">
+                          Select a community to see its members.
+                        </p>
+                      </div>
+                    )}
                     {selectedCommunityId && !selectedMemberId && (
-                      <MemberList
-                        communityId={selectedCommunityId}
-                        onMemberSelect={handleMemberSelect}
-                        onBack={handleBackToCommunities}
-                      />
+                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <MemberList
+                            communityId={selectedCommunityId}
+                            onMemberSelect={handleMemberSelect}
+                            onBack={handleBackToCommunities}
+                          />
+                           <div className="hidden lg:flex flex-col items-center justify-center h-full">
+                              <p className="text-muted-foreground text-center">
+                                Select a member to view their messages.
+                              </p>
+                            </div>
+                       </div>
                     )}
                     {selectedCommunityId && selectedMemberId && selectedMemberName &&(
                       <MessageList
@@ -70,13 +83,6 @@ export default function Dashboard() {
                         userName={selectedMemberName}
                         onBack={() => setSelectedMemberId(null)}
                       />
-                    )}
-                    {!selectedCommunityId && (
-                      <div className="flex flex-col items-center justify-center h-96">
-                        <p className="text-muted-foreground">
-                          Select a community to see its members.
-                        </p>
-                      </div>
                     )}
                   </CardContent>
                 </Card>
