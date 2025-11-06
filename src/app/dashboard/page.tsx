@@ -42,7 +42,7 @@ export default function Dashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       {user && (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center w-full">
           <div className="w-full max-w-screen-2xl">
             <div className="flex justify-between items-center mb-2">
               <h1 className="text-3xl font-bold">Dashboard</h1>
@@ -128,7 +128,7 @@ export default function Dashboard() {
                           </p>
                         </div>
                     )}
-                    {selectedMember && user && (
+                    {selectedMember && user && selectedCommunity && (
                       <MessageList
                         currentUserId={user.uid}
                         selectedUserId={selectedMember.id}
