@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { CommunityList } from '@/components/communities/community-list';
 import { MemberList } from '@/components/members/member-list';
@@ -8,6 +9,7 @@ import { MessageList } from '@/components/messages/message-list';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Community {
   id: string;
@@ -42,7 +44,18 @@ export default function Dashboard() {
       {user && (
         <div className="flex flex-col items-center">
           <div className="w-full max-w-screen-2xl">
-            <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+            <div className="flex justify-between items-center mb-2">
+              <h1 className="text-3xl font-bold">Dashboard</h1>
+              <div className="flex gap-2">
+                <Link href="/compare" passHref>
+                  <Button variant="outline">Go to Compare</Button>
+                </Link>
+                <Link href="/mongo" passHref>
+                  <Button variant="outline">Go to Mongo</Button>
+                </Link>
+              </div>
+            </div>
+
             <p className="text-lg text-muted-foreground mb-6">
               Welcome, {user.email}!
             </p>
