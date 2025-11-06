@@ -8,107 +8,181 @@ export interface Community {
     id: string;
     name: string;
     communityProfileImage?: string;
-    usersList: Member[];
-    [key: string]: any;
+    memberCount: number;
+    data: any;
 }
 
 export interface Member {
-    userId: string;
-    email?: string;
-    [key: string]: any;
-}
-
-export interface UserProfile {
-    _id: string;
     id: string;
-    name?: string;
-    lastName?: string;
-    email: string;
-    profileImage?: string;
-}
-
-export interface Channel {
-    _id: string;
-    community: string;
-    users: string[];
-    user: string;
+    uid?: string;
+    displayName?: string;
+    photoURL?: string;
+    email?: string;
+    phoneNumber?: string;
+    joinedAt?: string;
+    role: 'owner' | 'admin' | 'member';
+    data: any;
 }
 
 export interface Message {
-    _id: string;
-    channel: string;
-    sender: string;
+    id: string;
     text: string;
-    createdAt: Date;
+    createdAt: string;
+    sender: {
+        id: string;
+        uid?: string;
+        displayName?: string;
+        photoURL?: string;
+        email?: string;
+        data: any;
+    };
+    data: any;
 }
 
 // Re-export for client-side usage
-export type { Community as CommunityType, Member as MemberType, Message as MessageType, UserProfile as UserProfileType };
+export type { Community as CommunityType, Member as MemberType, Message as MessageType };
 
 
 export async function getCommunities(): Promise<Community[]> {
+  try {
     const db = await connectToDatabase();
-    const communities = await db.collection('communities').find({}).limit(50).toArray();
-    
-    // Convert to plain objects for the client, ensuring all ObjectIds are strings
-    return JSON.parse(JSON.stringify(communities));
+    const communities = await db
+      .collection('communities')
+      .find({})
+      .sort({ name: 1 })
+      .toArray();
+
+    return communities.map((c) => ({
+      id: c._id.toString(),
+      name: c.name,
+      communityProfileImage: c.communityProfileImage,
+      memberCount: c.usersList?.length || 0,
+      data: JSON.parse(JSON.stringify(c)), // Serialize for client
+    }));
+  } catch (error) {
+    console.error('Failed to get communities:', error);
+    return [];
+  }
 }
 
-
-export async function getCommunityMembers(communityId: string): Promise<{ members: Member[], profiles: Record<string, UserProfile> }> {
+export async function getMembers(communityId: string): Promise<Member[]> {
+  if (!communityId) return [];
+  try {
     const db = await connectToDatabase();
-    const communityObjectId = new ObjectId(communityId);
-
-    const community = await db.collection('communities').findOne({ _id: communityObjectId });
+    
+    const community = await db.collection('communities').findOne({ _id: new ObjectId(communityId) });
 
     if (!community || !community.usersList) {
-        return { members: [], profiles: {} };
+      return [];
     }
-
-    const members = JSON.parse(JSON.stringify(community.usersList)) as Member[];
     
-    // The userIds in usersList are strings that need to be converted to ObjectIds for the query
-    const userOids = members.map(m => m.userId).filter(Boolean).map(id => new ObjectId(id));
-    
-    const profiles: Record<string, UserProfile> = {};
+    // Filter out any potential null/undefined userIds before mapping
+    const userOids = community.usersList
+        .map((user: any) => user.userId)
+        .filter(Boolean) 
+        .map((id: any) => new ObjectId(id));
 
-    if (userOids.length > 0) {
-        const userDocs = await db.collection('users').find({ _id: { $in: userOids } }).toArray();
-
-        for (const doc of userDocs) {
-            const plainDoc = JSON.parse(JSON.stringify(doc));
-            const profile = { ...plainDoc, _id: plainDoc._id.toString(), id: plainDoc._id.toString() } as UserProfile;
-            // Use the original string userId from the members array as the key
-            const originalUserId = members.find(m => m.userId === profile._id)?.userId;
-            if (originalUserId) {
-                profiles[originalUserId] = profile;
-            }
+    const userJoinDates: {[key: string]: string} = {};
+    community.usersList.forEach((user: any) => {
+        if(user.userId && user.joinedAt) {
+            userJoinDates[user.userId.toString()] = user.joinedAt?.toISOString();
         }
-    }
-    
-    return { members, profiles };
+    });
+
+    const communityOwnerId = community.owner?.toString();
+    const adminIds = (community.communityHandles || [])
+        .filter((handle: any) => handle.role === 'cl' || handle.role === 'admin')
+        .map((handle: any) => handle.userId.toString());
+
+
+    const users = await db
+      .collection('users')
+      .find({ _id: { $in: userOids } })
+      .project({ _id: 1, uid: 1, displayName: 1, photoURL: 1, email: 1, fullName: 1, profileImage: 1, phoneNumber: 1, firebaseUid: 1 })
+      .limit(100) // Let's increase the limit a bit
+      .toArray();
+
+    return users.map((u: any) => {
+        const userIdString = u._id.toString();
+        let role: 'owner' | 'admin' | 'member' = 'member';
+        if (userIdString === communityOwnerId) {
+            role = 'owner';
+        } else if (adminIds.includes(userIdString)) {
+            role = 'admin';
+        }
+
+        return {
+            id: userIdString,
+            uid: u.uid || u.firebaseUid,
+            displayName: u.displayName || u.fullName,
+            photoURL: u.photoURL || u.profileImage,
+            email: u.email,
+            phoneNumber: u.phoneNumber,
+            joinedAt: userJoinDates[userIdString],
+            role,
+            data: JSON.parse(JSON.stringify(u)),
+        }
+    });
+  } catch (error) {
+    console.error(`Failed to get members for community ${communityId}:`, error);
+    return [];
+  }
 }
 
-export async function getMessages(communityId: string, currentUserId: string, selectedUserId: string): Promise<Message[]> {
+export async function getMessagesForMember(communityId: string, memberId: string): Promise<Message[]> {
+  if (!communityId || !memberId) return [];
+  try {
     const db = await connectToDatabase();
-    
-    // Find the channel that includes the selected member
+    const memberObjectId = new ObjectId(memberId);
+    const communityObjectId = new ObjectId(communityId);
+
     const channel = await db.collection('channels').findOne({
-      community: new ObjectId(communityId),
-      user: new ObjectId(selectedUserId)
+      user: memberObjectId,
+      community: communityObjectId,
     });
 
     if (!channel) {
       return [];
     }
-  
-    // Fetch messages for that channel
-    const messages = await db.collection('messages')
-      .find({ channel: channel._id })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .toArray();
-      
-    // Convert to plain objects before returning
-    return JSON.parse(JSON.stringify(messages));
+
+    const messagesFromDb: any[] = await db.collection('messages').aggregate([
+      { $match: { channel: channel._id } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 100 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user', // user on message is the sender
+          foreignField: '_id',
+          as: 'senderInfo'
+        }
+      },
+      { $unwind: { path: '$senderInfo', preserveNullAndEmptyArrays: true } }
+    ]).toArray();
+
+    return messagesFromDb.map((m: any) => ({
+      id: m._id.toString(),
+      text: m.text,
+      createdAt: m.createdAt.toISOString(),
+      sender: m.senderInfo ? {
+        id: m.senderInfo._id.toString(),
+        uid: m.senderInfo.uid,
+        displayName: m.senderInfo.displayName || m.senderInfo.fullName,
+        photoURL: m.senderInfo.photoURL || m.senderInfo.profileImage,
+        email: m.senderInfo.email,
+        data: JSON.parse(JSON.stringify(m.senderInfo)),
+      } : { // Handle case where sender might not be in users collection or is system message
+        id: m.user?.toString() || 'unknown',
+        uid: 'unknown',
+        displayName: 'Unknown Sender',
+        photoURL: '',
+        email: '',
+        data: {},
+      },
+      data: JSON.parse(JSON.stringify(m)),
+    }));
+  } catch (error) {
+    console.error(`Failed to get messages for member ${memberId} in community ${communityId}:`, error);
+    return [];
+  }
 }

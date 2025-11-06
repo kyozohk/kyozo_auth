@@ -1,86 +1,92 @@
 'use client';
 import React from 'react';
-import type { Member, UserProfile } from '@/app/mongo/actions';
+import type { Member } from '@/app/mongo/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserProfileMongo } from './user-profile-mongo';
+import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '../ui/input';
+import { Search } from 'lucide-react';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface MemberListProps {
   members: Member[];
-  profiles: Record<string, UserProfile>;
   isLoading: boolean;
   onMemberSelect: (member: Member) => void;
-  searchTerm: string;
   selectedMemberId?: string | null;
 }
 
-export function MemberListMongo({ members, profiles, isLoading, onMemberSelect, searchTerm, selectedMemberId }: MemberListProps) {
-  
+export function MemberListMongo({ members, isLoading, onMemberSelect, selectedMemberId }: MemberListProps) {
+  const [searchTerm, setSearchTerm] = React.useState('');
+
   const filteredMembers = React.useMemo(() => {
     if (!members) return [];
-    
-    // First, filter out members that do not have a profile yet if profiles are still loading
-    const availableMembers = members.filter(member => profiles[member.userId]);
-
-    if (!searchTerm) return availableMembers;
+    if (!searchTerm) return members;
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
 
-    return availableMembers.filter(member => {
-      const profile = profiles[member.userId];
-      if (profile) {
-        const name = `${profile.name || ''} ${profile.lastName || ''}`.trim();
-        const email = profile.email || '';
+    return members.filter(member => {
+        const name = member.displayName || '';
+        const email = member.email || '';
         return name.toLowerCase().includes(lowerCaseSearchTerm) || email.toLowerCase().includes(lowerCaseSearchTerm);
-      }
-      return false;
     });
-  }, [members, searchTerm, profiles]);
+  }, [members, searchTerm]);
 
 
-  if (isLoading) {
-    return (
-        <div className='flex flex-col h-full'>
-            <h2 className="text-2xl font-bold mb-4">Members</h2>
-            <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-center space-x-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-[150px]" />
-                        <Skeleton className="h-4 w-[100px]" />
-                    </div>
-                    </div>
-                ))}
+  const renderSkeleton = () => (
+    <div className="space-y-4">
+        {[...Array(8)].map((_, i) => (
+            <div key={i} className="flex items-center space-x-4">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-2">
+                <Skeleton className="h-4 w-[150px]" />
+                <Skeleton className="h-4 w-[100px]" />
             </div>
-        </div>
-    );
-  }
+            </div>
+        ))}
+    </div>
+  );
 
   return (
-    <div className='flex flex-col h-full'>
-      <h2 className="text-2xl font-bold mb-4">Members</h2>
+    <>
+      <CardHeader className="p-0 mb-4">
+          <CardTitle>Members</CardTitle>
+          <CardDescription>Select a member</CardDescription>
+      </CardHeader>
+       <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search members..."
+            className="w-full pl-10"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       
-      <div className="space-y-1 overflow-y-auto">
-        {filteredMembers.map((member) => (
-          <div key={member.userId} className="flex items-center space-x-1">
-            <UserProfileMongo
-              userId={member.userId}
-              profile={profiles[member.userId]}
-              onSelect={() => onMemberSelect(member)}
-              isSelected={selectedMemberId === member.userId}
-            />
-          </div>
-        ))}
-        {members.length > 0 && filteredMembers.length === 0 && !isLoading && (
-            <p className="p-4 text-center text-sm text-muted-foreground">
-            No members match your search.
-        </p>
-        )}
-        {members.length === 0 && !isLoading && (
-            <p className="p-4 text-center text-sm text-muted-foreground">
-            No members found in this community.
-        </p>
-        )}
-      </div>
-    </div>
+      {isLoading ? renderSkeleton() : (
+        <ScrollArea className='flex-1'>
+            <div className="space-y-1 pr-4">
+                {filteredMembers.map((member) => (
+                <div key={member.id} className="flex items-center space-x-1">
+                    <UserProfileMongo
+                        member={member}
+                        onSelect={() => onMemberSelect(member)}
+                        isSelected={selectedMemberId === member.id}
+                    />
+                </div>
+                ))}
+                {members.length > 0 && filteredMembers.length === 0 && !isLoading && (
+                    <p className="p-4 text-center text-sm text-muted-foreground">
+                    No members match your search.
+                </p>
+                )}
+                {members.length === 0 && !isLoading && (
+                    <p className="p-4 text-center text-sm text-muted-foreground">
+                    No members found in this community.
+                </p>
+                )}
+            </div>
+        </ScrollArea>
+      )}
+    </>
   );
 }
