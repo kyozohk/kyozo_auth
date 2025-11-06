@@ -48,9 +48,11 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      // By calling sendPasswordResetEmail without a second argument,
-      // we are using the default Firebase password reset flow.
-      await sendPasswordResetEmail(auth, data.email);
+      const actionCodeSettings = {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: true,
+      };
+      await sendPasswordResetEmail(auth, data.email, actionCodeSettings);
       setIsSubmitted(true);
     } catch (error: any) {
       toast({
