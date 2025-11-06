@@ -2,7 +2,7 @@
 
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { db } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -23,12 +23,13 @@ interface MemberListProps {
 }
 
 export function MemberList({ communityId, onMemberSelect, onBack }: MemberListProps) {
+  const firestore = useFirestore();
   const membersQuery = useMemoFirebase(() => {
     return query(
-      collection(db, `communities/${communityId}/members`),
+      collection(firestore, `communities/${communityId}/members`),
       orderBy('name')
     );
-  }, [communityId]);
+  }, [communityId, firestore]);
 
   const { data: members, isLoading, error } = useCollection<Member>(membersQuery);
 

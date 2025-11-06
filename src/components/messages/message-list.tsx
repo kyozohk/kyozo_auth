@@ -2,7 +2,7 @@
 
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, orderBy, where } from 'firebase/firestore';
-import { db } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -26,15 +26,16 @@ interface MessageListProps {
 }
 
 export function MessageList({ userId, userName, onBack }: MessageListProps) {
+  const firestore = useFirestore();
   const messagesQuery = useMemoFirebase(() => {
     // This query assumes a top-level 'messages' collection
     // and filters messages by the selected user's ID.
     return query(
-      collection(db, 'messages'),
+      collection(firestore, 'messages'),
       where('senderId', '==', userId),
       orderBy('createdAt', 'desc')
     );
-  }, [userId]);
+  }, [userId, firestore]);
 
   const { data: messages, isLoading, error } = useCollection<Message>(messagesQuery);
 

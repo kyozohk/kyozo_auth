@@ -1,9 +1,8 @@
 'use client';
 
-import { useAuth } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { db } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -22,13 +21,13 @@ interface CommunityListProps {
 }
 
 export function CommunityList({ selectedCommunityId, onCommunitySelect }: CommunityListProps) {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const firestore = useFirestore();
 
   const communitiesQuery = useMemoFirebase(() => {
     if (!user) return null;
-    // Assuming communities are at the root level
-    return query(collection(db, 'communities'), orderBy('name'));
-  }, [user]);
+    return query(collection(firestore, 'communities'), orderBy('name'));
+  }, [user, firestore]);
 
   const { data: communities, isLoading, error } = useCollection<Community>(communitiesQuery);
 
