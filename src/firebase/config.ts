@@ -1,8 +1,9 @@
 export const firebaseConfig = {
-  "projectId": "studio-6492349663-db62a",
-  "appId": "1:950696238601:web:9e9afe26d0608caa5422d8",
-  "apiKey": "AIzaSyBxxVVRPrTqAhtdTHgi2GyI7T8NjS5wBKk",
-  "authDomain": "studio-6492349663-db62a.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "950696238601"
+    apiKey: "AIzaSyDGB-sGpL90AgDPrcX8YCIVK4QmMDJgDlc",
+    authDomain: "kyozo-prod.firebaseapp.com",
+    projectId: "kyozo-prod",
+    storageBucket: "kyozo-prod.appspot.com",
+    messagingSenderId: "480316724826",
+    appId: "1:480316724826:web:db8edb5d275ef023f8ea63",
+    measurementId: "G-V1EPVV2594"
 };

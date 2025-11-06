@@ -16,14 +16,9 @@ const serviceAccount = {
 } as admin.ServiceAccount;
 
 if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-  } catch (e: any) {
-      // Throw a more informative error to help with debugging.
-      throw new Error(`Firebase Admin initialization failed: ${e.message}`);
-  }
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
 }
 
 export const firestore = admin.firestore();
