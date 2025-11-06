@@ -1,20 +1,22 @@
 'use client';
-
+import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserProfile } from '@/components/users/user-profile';
 
 interface Member {
   userId: string;
-  // Other properties can be added here if needed from the usersList object
+  name?: string;
+  email?: string;
 }
 
 interface MemberListProps {
   usersList: Member[];
   onMemberSelect: (memberId: string, memberName: string) => void;
+  searchTerm: string;
+  selectedMemberId?: string | null;
 }
 
-export function MemberList({ usersList, onMemberSelect }: MemberListProps) {
-
+export function MemberList({ usersList, onMemberSelect, searchTerm, selectedMemberId }: MemberListProps) {
   const renderSkeleton = () => (
     <div className="space-y-4">
       {[...Array(5)].map((_, i) => (
@@ -28,27 +30,37 @@ export function MemberList({ usersList, onMemberSelect }: MemberListProps) {
       ))}
     </div>
   );
+  
+  const filteredUsers = React.useMemo(() => {
+    if (!usersList) return [];
+    return usersList.filter(user => {
+        const name = user.name || '';
+        const email = user.email || '';
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        return name.toLowerCase().includes(lowerCaseSearchTerm) || email.toLowerCase().includes(lowerCaseSearchTerm);
+    });
+  }, [usersList, searchTerm]);
+
 
   return (
-    <div>
-        <div className='flex items-center mb-4'>
-            <h2 className="text-2xl font-bold">Members</h2>
-        </div>
+    <div className='flex flex-col h-full'>
+      <h2 className="text-2xl font-bold mb-4">Members</h2>
 
       {!usersList && renderSkeleton()}
-      
+
       {usersList && (
-        <div className="space-y-2">
-          {usersList.map((member) => (
+        <div className="space-y-2 overflow-y-auto">
+          {filteredUsers.map((member) => (
             <UserProfile
               key={member.userId}
               userId={member.userId}
               onSelect={onMemberSelect}
+              isSelected={selectedMemberId === member.userId}
             />
           ))}
-          {usersList.length === 0 && (
+          {filteredUsers.length === 0 && (
             <p className="p-4 text-center text-sm text-muted-foreground">
-              No members found in this community.
+              {usersList.length > 0 ? 'No members match your search.' : 'No members found in this community.'}
             </p>
           )}
         </div>

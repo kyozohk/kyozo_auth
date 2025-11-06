@@ -1,0 +1,136 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account in the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "signUpTimestamp": {
+          "type": "string",
+          "description": "Timestamp of when the user signed up.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "signUpTimestamp"
+      ]
+    },
+    "UserProfile": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "UserProfile",
+        "type": "object",
+        "description": "Represents a user's public profile.",
+        "properties": {
+          "name": { "type": "string" },
+          "lastName": { "type": "string" },
+          "email": { "type": "string", "format": "email" }
+        },
+        "required": ["name", "email"]
+      },
+    "Community": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Community",
+      "type": "object",
+      "description": "Represents a community or group.",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the community." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "usersList": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "userId": { "type": "string" },
+                    "email": { "type": "string", "format": "email" }
+                }
+            }
+        }
+      },
+      "required": ["name", "createdAt"]
+    },
+    "Message": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Message",
+      "type": "object",
+      "description": "Represents a message within a channel.",
+      "properties": {
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" }
+      },
+      "required": ["text", "createdAt", "senderId"]
+    },
+    "Channel": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Channel",
+      "type": "object",
+      "description": "Represents a conversation channel between users.",
+      "properties": {
+        "users": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "An array of user IDs participating in the channel."
+        }
+      },
+      "required": ["users"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/UserProfile" },
+          "description": "Stores user profile data."
+        }
+      },
+      {
+        "path": "/Users/{userId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/UserProfile" },
+          "description": "Stores user profile data (alternative casing)."
+        }
+      },
+      {
+        "path": "/communities/{communityId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/Community" },
+          "description": "Root collection for communities."
+        }
+      },
+      {
+        "path": "/channels/{channelId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/Channel" },
+          "description": "Collection for conversation channels."
+        }
+      },
+      {
+        "path": "/channels/{channelId}/messages/{messageId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/Message" },
+          "description": "Sub-collection for messages within a channel."
+        }
+      }
+    ]
+  }
+}
