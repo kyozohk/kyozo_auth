@@ -3,6 +3,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { getAuth } from 'firebase-admin/auth';
 
 // --- Firestore Data Fetching ---
 
@@ -125,8 +126,6 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
                     const userOids = community.usersList
                         .map((user: any) => {
                             try {
-                                // The userId from usersList is already a string in your data, 
-                                // so we create an ObjectId from it.
                                 return new ObjectId(user.userId)
                             } catch (e) {
                                 console.error(`Invalid ObjectId format for userId: ${user.userId}`);
@@ -147,7 +146,7 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
                 return {
                     ...community,
                     id: communityId,
-                    _id: communityId, // ensure _id is a string
+                    _id: communityId,
                     members: members,
                 };
             })
@@ -158,5 +157,69 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
     } catch (error) {
         console.error('Failed to get MongoDB communities with members:', error);
         return [];
+    }
+}
+
+// --- Data Synchronization Action ---
+export async function fixAndSyncCommunity(communityId: string): Promise<{success: boolean, message: string}> {
+    if (!communityId) {
+        return { success: false, message: 'Community ID is required.' };
+    }
+
+    try {
+        const db = await connectToDatabase();
+        const mongoCommunity = await db.collection('communities').findOne({ _id: new ObjectId(communityId) });
+
+        if (!mongoCommunity) {
+            throw new Error(`Community with ID ${communityId} not found in MongoDB.`);
+        }
+
+        if (!mongoCommunity.usersList || !Array.isArray(mongoCommunity.usersList)) {
+            return { success: true, message: 'Community has no members in MongoDB. Nothing to sync.' };
+        }
+        
+        const newUsersList = [];
+        const auth = getAuth();
+
+        for (const member of mongoCommunity.usersList) {
+            const mongoUserId = member.userId;
+            const mongoUser = await db.collection('users').findOne({ _id: new ObjectId(mongoUserId) });
+            
+            if (!mongoUser || !mongoUser.email) {
+                console.warn(`Skipping member with Mongo ID ${mongoUserId} - no user record or email found.`);
+                continue;
+            }
+
+            try {
+                // Find the user in Firebase Auth by their email
+                const firebaseUserRecord = await auth.getUserByEmail(mongoUser.email);
+                
+                // Add the Firebase UID to our new list
+                newUsersList.push({
+                    ...member, // keep original data like joinedAt, etc.
+                    userId: firebaseUserRecord.uid, // The CRITICAL CHANGE: use Firebase UID
+                    email: mongoUser.email, // Ensure email is present
+                });
+
+            } catch (error: any) {
+                if (error.code === 'auth/user-not-found') {
+                    console.warn(`User with email ${mongoUser.email} (Mongo ID: ${mongoUserId}) not found in Firebase Auth. Skipping.`);
+                } else {
+                    console.error(`Error fetching Firebase user for email ${mongoUser.email}:`, error);
+                }
+            }
+        }
+        
+        // Update the document in Firestore
+        const communityRef = firestore.collection('communities').doc(communityId);
+        await communityRef.update({
+            usersList: newUsersList
+        });
+
+        return { success: true, message: `Successfully synced ${newUsersList.length} members for community "${mongoCommunity.name}".` };
+
+    } catch (error: any) {
+        console.error('Failed to sync community:', error);
+        return { success: false, message: error.message || 'An unknown error occurred during sync.' };
     }
 }
