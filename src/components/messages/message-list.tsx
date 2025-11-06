@@ -54,16 +54,27 @@ interface MessageListProps {
 // Custom hook to fetch a user profile
 function useUserProfile(userId: string) {
     const firestore = useFirestore();
+    // Try both casings for user collection
     const userDocRef = useMemoFirebase(() => {
-        if (!userId) return null;
+        if (!userId || !firestore) return null;
         return doc(firestore, 'users', userId);
     }, [userId, firestore]);
+    const upperUserDocRef = useMemoFirebase(() => {
+        if (!userId || !firestore) return null;
+        return doc(firestore, 'Users', userId);
+    }, [userId, firestore]);
+
     const { data: user, isLoading } = useDoc<UserProfile>(userDocRef);
-    return { user, isLoading };
+    const { data: upperUser, isLoading: isLoadingUpper } = useDoc<UserProfile>(upperUserDocRef);
+    
+    const finalUser = user || upperUser;
+    const finalIsLoading = (isLoading && !upperUser) || (isLoadingUpper && !user);
+
+    return { user: finalUser, isLoading: finalIsLoading };
 }
 
 
-export function MessageList({ currentUserId, selectedUserId, selectedUserName, selectedCommunityId, onBack }: MessageListProps) {
+export function MessageList({ currentUserId, selectedUserId, selectedCommunityId, onBack }: MessageListProps) {
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
   const { toast } = useToast();
@@ -71,7 +82,7 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
   const [isLoadingChannel, setIsLoadingChannel] = useState(true);
   const [newMessage, setNewMessage] = useState('');
 
-  // 1. Find the conversation channel
+  // 1. Find the conversation channel more efficiently
   useEffect(() => {
     const findChannel = async () => {
         if (!currentUserId || !selectedUserId || !selectedCommunityId || !firestore) {
@@ -81,25 +92,28 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
         setIsLoadingChannel(true);
         const channelsRef = collection(firestore, 'channels');
         
-        // Query for channels in the community that include the current user
+        // This query is more specific and efficient.
+        // It looks for a channel in the right community containing both users.
         const q = query(
             channelsRef, 
             where('community', '==', selectedCommunityId),
-            where('users', 'array-contains', currentUserId)
+            where('users', 'array-contains-all', [currentUserId, selectedUserId])
         );
         
         try {
             const snapshot = await getDocs(q);
-            let foundChannelId = null;
-            // Client-side filter to find the channel that ALSO includes the selected user
-            for (const doc of snapshot.docs) {
-                const channelData = doc.data();
-                if (channelData.users && channelData.users.includes(selectedUserId)) {
-                    foundChannelId = doc.id;
-                    break; 
+            if (!snapshot.empty) {
+                // There should only be one channel for a pair of users in a community
+                const channelDoc = snapshot.docs[0];
+                 // Final check to ensure exactly two users
+                if(channelDoc.data().users.length === 2) {
+                    setChannelId(channelDoc.id);
+                } else {
+                    setChannelId(null);
                 }
+            } else {
+              setChannelId(null);
             }
-            setChannelId(foundChannelId);
         } catch(e) {
             console.error("Error finding channel: ", e);
             setChannelId(null);

@@ -35,12 +35,11 @@ service cloud.firestore {
 
     /**
      * @description Access control for conversation channels.
-     * Authenticated users can read channel data. This is necessary to find
-     * members of a community.
+     * Authenticated users can read channel data if they are one of the participants.
      */
     match /channels/{channelId} {
-      allow read: if request.auth != null;
-      // Write access could be more restrictive, e.g., only by community admins
+      allow read: if request.auth != null && request.auth.uid in resource.data.users;
+      // Write access could be more restrictive, e.g., only by community admins or participants
       allow write: if request.auth != null; 
     }
 
