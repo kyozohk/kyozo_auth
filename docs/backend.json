@@ -26,6 +26,41 @@
         "email",
         "signUpTimestamp"
       ]
+    },
+    "Community": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Community",
+      "type": "object",
+      "description": "Represents a community or group.",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the community." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "createdAt"]
+    },
+    "Member": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Member",
+      "type": "object",
+      "description": "Represents a member within a community.",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "member"] }
+      },
+      "required": ["name", "role"]
+    },
+    "Message": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Message",
+      "type": "object",
+      "description": "Represents a message sent by a user.",
+      "properties": {
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "senderId": { "type": "string", "description": "The UID of the user who sent the message." },
+        "senderName": { "type": "string" }
+      },
+      "required": ["text", "createdAt", "senderId", "senderName"]
     }
   },
   "auth": {
@@ -39,20 +74,31 @@
       {
         "path": "/users/{userId}",
         "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profile data. Access is restricted to the user with matching userId.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user, matching the Firebase Authentication UID."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/User" },
+          "description": "Stores user profile data."
         }
+      },
+      {
+        "path": "/communities/{communityId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/Community" },
+          "description": "Root collection for communities."
+        }
+      },
+      {
+        "path": "/communities/{communityId}/members/{memberId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/Member" },
+          "description": "Sub-collection for members within a community. memberId should be a userId."
+        }
+      },
+      {
+          "path": "/messages/{messageId}",
+          "definition": {
+              "schema": { "$ref": "#/backend/entities/Message"},
+              "description": "Root collection for all messages."
+          }
       }
-    ],
-    "reasoning": "This design prioritizes simplicity and security for basic user authentication. All user data is stored under the `/users/{userId}` path, making ownership clear and simplifying security rules. Authorization Independence is achieved because access control relies solely on the `request.auth.uid` matching the `userId` path segment; no data denormalization is necessary for this specific, simple use case. Segregation is ensured because all documents within `/users/{userId}` share the same security posture (private to the user). This structure supports QAPs because list operations can be secured based on the path structure itself, without needing to filter based on document content."
+    ]
   }
 }

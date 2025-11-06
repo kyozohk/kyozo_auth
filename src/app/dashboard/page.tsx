@@ -1,132 +1,90 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useAuth } from "@/context/auth-context";
-import { useState } from "react";
-import { GetUsersOutput, getUsersFlow } from "@/ai/flows/getUsersFlow";
+import { useState } from 'react';
+import { useAuth } from '@/firebase';
+import { CommunityList } from '@/components/communities/community-list';
+import { MemberList } from '@/components/members/member-list';
+import { MessageList } from '@/components/messages/message-list';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import ProtectedPage from "@/components/auth/protected-page";
-import { LogOut, Loader2 } from "lucide-react";
-
-function DashboardContent() {
+export default function Dashboard() {
   const { user } = useAuth();
-  const router = useRouter();
-  const [users, setUsers] = useState<GetUsersOutput>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(
+    null
+  );
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(
+    null
+  );
+  const [selectedMemberName, setSelectedMemberName] = useState<string | null>(
+    null
+  );
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/login");
+  const handleCommunitySelect = (communityId: string) => {
+    setSelectedCommunityId(communityId);
+    setSelectedMemberId(null); // Reset member when community changes
+    setSelectedMemberName(null);
   };
 
-  const handleFetchUsers = async () => {
-    setIsLoading(true);
-    setError(null);
-    setUsers([]);
-    try {
-      const result = await getUsersFlow();
-      setUsers(result);
-    } catch (e: any) {
-      setError(e.message || "An error occurred while fetching users.");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleMemberSelect = (memberId: string, memberName: string) => {
+    setSelectedMemberId(memberId);
+    setSelectedMemberName(memberName);
   };
+
+  const handleBackToCommunities = () => {
+    setSelectedCommunityId(null);
+    setSelectedMemberId(null);
+    setSelectedMemberName(null);
+  }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
-        <h1 className="text-xl font-semibold font-headline">Dashboard</h1>
-        <Button variant="ghost" size="icon" onClick={handleLogout}>
-          <LogOut className="h-5 w-5" />
-          <span className="sr-only">Logout</span>
-        </Button>
-      </header>
-      <main className="flex-1 p-4 sm:p-6">
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Welcome Back!</CardTitle>
-              <CardDescription>You are successfully logged in.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>
-                Your email:{" "}
-                <span className="font-medium text-primary">{user?.email}</span>
-              </p>
-            </CardContent>
-          </Card>
+    <div className="container mx-auto px-4 py-8">
+      {user && (
+        <div className="flex flex-col items-center">
+          <div className="w-full max-w-5xl">
+            <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+            <p className="text-lg text-muted-foreground mb-8">
+              Welcome, {user.email}!
+            </p>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Firestore Data</CardTitle>
-              <CardDescription>
-                Fetch user data from your Firestore database.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={handleFetchUsers} disabled={isLoading}>
-                {isLoading && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Fetch Users
-              </Button>
-              {error && (
-                <p className="mt-4 text-sm text-destructive">{error}</p>
-              )}
-              {users.length > 0 && (
-                <div className="mt-4 rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.name}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>{user.role}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-1">
+                <CommunityList
+                  selectedCommunityId={selectedCommunityId}
+                  onCommunitySelect={handleCommunitySelect}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Card>
+                  <CardContent className="pt-6">
+                    {selectedCommunityId && !selectedMemberId && (
+                      <MemberList
+                        communityId={selectedCommunityId}
+                        onMemberSelect={handleMemberSelect}
+                        onBack={handleBackToCommunities}
+                      />
+                    )}
+                    {selectedCommunityId && selectedMemberId && selectedMemberName &&(
+                      <MessageList
+                        userId={selectedMemberId}
+                        userName={selectedMemberName}
+                        onBack={() => setSelectedMemberId(null)}
+                      />
+                    )}
+                    {!selectedCommunityId && (
+                      <div className="flex flex-col items-center justify-center h-96">
+                        <p className="text-muted-foreground">
+                          Select a community to see its members.
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
+      )}
     </div>
   );
-}
-
-export default function DashboardPage() {
-    return (
-        <ProtectedPage>
-            <DashboardContent />
-        </ProtectedPage>
-    );
 }

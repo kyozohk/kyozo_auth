@@ -1,0 +1,86 @@
+'use client';
+
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { db } from '@/firebase';
+import { useMemoFirebase } from '@/firebase/use-memo-firebase';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+
+interface Member {
+  id: string;
+  name: string;
+  role: 'admin' | 'member';
+}
+
+interface MemberListProps {
+  communityId: string;
+  onMemberSelect: (memberId: string, memberName: string) => void;
+  onBack: () => void;
+}
+
+export function MemberList({ communityId, onMemberSelect, onBack }: MemberListProps) {
+  const membersQuery = useMemoFirebase(() => {
+    return query(
+      collection(db, `communities/${communityId}/members`),
+      orderBy('name')
+    );
+  }, [communityId]);
+
+  const { data: members, isLoading, error } = useCollection<Member>(membersQuery);
+
+  const renderSkeleton = () => (
+    <div className="space-y-4">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex items-center space-x-4">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[150px]" />
+            <Skeleton className="h-4 w-[100px]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div>
+        <div className='flex items-center mb-4'>
+             <Button variant="ghost" size="icon" onClick={onBack} className="mr-2">
+                <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-2xl font-bold">Members</h2>
+        </div>
+      
+      {isLoading && renderSkeleton()}
+      {error && <p className="text-destructive">Error: {error.message}</p>}
+      {!isLoading && !error && members && (
+        <div className="space-y-2">
+          {members.map((member) => (
+            <div
+              key={member.id}
+              className="flex items-center justify-between p-3 border rounded-md hover:bg-muted cursor-pointer"
+              onClick={() => onMemberSelect(member.id, member.name)}
+            >
+              <div className='flex items-center space-x-3'>
+                <Avatar>
+                    <AvatarFallback>{member.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <p className="font-semibold">{member.name}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm">View Messages</Button>
+            </div>
+          ))}
+          {members.length === 0 && <p className='text-sm text-muted-foreground p-4 text-center'>No members found in this community.</p>}
+        </div>
+      )}
+    </div>
+  );
+}

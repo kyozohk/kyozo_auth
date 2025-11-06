@@ -3,19 +3,7 @@
  *
  * Core Philosophy:
  * This ruleset enforces a strict user-ownership model where each user can only access their own data.
- *
- * Data Structure:
- * All user data is stored under the `/users/{userId}` path.
- *
- * Key Security Decisions:
- * - Users can only access their own data.
- * - Listing all users is disallowed.
- *
- * Denormalization for Authorization:
- * Not applicable in this simple user-ownership model, as the path itself defines ownership.
- *
- * Structural Segregation:
- * All user data is considered private and stored under the user's unique path.
+ * Public read access is granted for communities and members.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -23,43 +11,36 @@ service cloud.firestore {
 
     /**
      * @description Controls access to user profile documents.
-     * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their own profile document.
-     * @allow (get) User with ID 'user123' can retrieve their own profile document.
-     * @allow (update) User with ID 'user123' can update their own profile document.
-     * @allow (delete) User with ID 'user123' can delete their own profile document.
-     * @deny (create) User with ID 'user456' cannot create a profile document for 'user123'.
-     * @deny (get) User with ID 'user456' cannot retrieve the profile document for 'user123'.
-     * @deny (update) User with ID 'user456' cannot update the profile document for 'user123'.
-     * @deny (delete) User with ID 'user456' cannot delete the profile document for 'user123'.
-     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      // Helper function to check if the request is made by the owner.
-      function isOwner(userId) {
+      function isOwner() {
         return request.auth != null && request.auth.uid == userId;
       }
+      allow read, write: if isOwner();
+    }
+    
+    /**
+     * @description Public read access for communities and their members.
+     * Writing is restricted to authenticated users (as a basic protection).
+     */
+    match /communities/{communityId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
 
-      // Helper function to check if the user is creating their own document.
-      function isCreatingOwnDocument(userId) {
-        return request.auth != null && request.auth.uid == userId && request.resource.data.id == userId;
+      match /members/{memberId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
       }
+    }
 
-      // Helper function to check if the user is updating their own document.
-      function isUpdatingOwnDocument(userId) {
-        return request.auth != null && request.auth.uid == userId && request.resource.data.id == resource.data.id;
-      }
-
-      // Helper function to check if the user is deleting their own document.
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isCreatingOwnDocument(userId);
-      allow update: if isUpdatingOwnDocument(userId);
-      allow delete: if isExistingOwner(userId);
+    /**
+     * @description Public read access for messages.
+     * Writing is restricted to the user who sends the message.
+     */
+    match /messages/{messageId} {
+       allow read: if request.auth != null;
+       allow create: if request.auth != null && request.resource.data.senderId == request.auth.uid;
+       allow update, delete: if request.auth != null && resource.data.senderId == request.auth.uid;
     }
   }
 }

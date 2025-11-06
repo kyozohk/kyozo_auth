@@ -40,6 +40,9 @@ export function getSdks(firebaseApp: FirebaseApp) {
   };
 }
 
+const { firestore: db } = initializeFirebase();
+export { db };
+
 export * from './provider';
 export * from './client-provider';
 export * from './firestore/use-collection';
@@ -48,3 +51,4 @@ export * from './non-blocking-updates';
 export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
+export * from './use-memo-firebase';
