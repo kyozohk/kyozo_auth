@@ -1,13 +1,13 @@
 'use client';
 
-import { useDoc } from '@/firebase/firestore/use-doc';
-import { doc } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, query, where, limit } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 interface UserProfileData {
   id: string;
@@ -27,23 +27,27 @@ interface UserProfileProps {
 export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: UserProfileProps) {
   const firestore = useFirestore();
 
-  // Try fetching from 'users' collection by ID
-  const userDocRef = useMemoFirebase(() => {
+  // Query 'users' collection where 'id' field == userId
+  const usersQuery = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
-    return doc(firestore, 'users', userId);
+    return query(collection(firestore, 'users'), where('id', '==', userId), limit(1));
   }, [userId, firestore]);
-  const { data: userById, isLoading: isLoadingById } = useDoc<UserProfileData>(userDocRef);
+  const { data: usersResult, isLoading: isLoadingUsers } = useCollection<UserProfileData>(usersQuery);
 
-  // Try fetching from 'Users' collection by ID
-  const upperUserDocRef = useMemoFirebase(() => {
+  // Query 'Users' collection where 'id' field == userId
+  const upperUsersQuery = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
-    return doc(firestore, 'Users', userId);
+    return query(collection(firestore, 'Users'), where('id', '==', userId), limit(1));
   }, [userId, firestore]);
-  const { data: upperUserById, isLoading: isLoadingUpperById } = useDoc<UserProfileData>(upperUserDocRef);
+  const { data: upperUsersResult, isLoading: isLoadingUpperUsers } = useCollection<UserProfileData>(upperUsersQuery);
 
-
-  const user = userById || upperUserById;
-  const isLoading = isLoadingById || isLoadingUpperById;
+  const user = useMemo(() => {
+    if (usersResult && usersResult.length > 0) return usersResult[0];
+    if (upperUsersResult && upperUsersResult.length > 0) return upperUsersResult[0];
+    return null;
+  }, [usersResult, upperUsersResult]);
+  
+  const isLoading = isLoadingUsers || isLoadingUpperUsers;
 
   const fullName = user ? `${user.name || ''} ${user.lastName || ''}`.trim() || user.email || 'Unnamed User' : 'Loading...';
 

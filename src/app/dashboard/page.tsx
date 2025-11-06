@@ -12,12 +12,12 @@ import { Search } from 'lucide-react';
 interface Community {
   id: string;
   name: string;
-  usersList: { userId: string; email?: string; name?: string }[];
+  usersList: { userId: string; email?: string; [key: string]: any; }[];
   [key: string]: any;
 }
 
 export default function Dashboard() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   const [selectedMember, setSelectedMember] = useState<{ id: string; name: string } | null>(null);
   const [communitySearchTerm, setCommunitySearchTerm] = useState('');
@@ -32,6 +32,10 @@ export default function Dashboard() {
   const handleMemberSelect = (memberId: string, memberName: string) => {
     setSelectedMember({ id: memberId, name: memberName });
   };
+  
+  if (isUserLoading) {
+    return <div className="flex min-h-screen items-center justify-center">Loading...</div>
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -93,11 +97,10 @@ export default function Dashboard() {
                               />
                             </div>
                             <MemberList
-                              communityId={selectedCommunity.id}
+                              members={selectedCommunity.usersList}
                               onMemberSelect={handleMemberSelect}
                               searchTerm={memberSearchTerm}
                               selectedMemberId={selectedMember?.id}
-                              selectedCommunityId={selectedCommunity.id}
                             />
                         </div>
 

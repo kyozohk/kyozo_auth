@@ -33,11 +33,12 @@
         "type": "object",
         "description": "Represents a user's public profile.",
         "properties": {
+          "id": { "type": "string" },
           "name": { "type": "string" },
           "lastName": { "type": "string" },
           "email": { "type": "string", "format": "email" }
         },
-        "required": ["name", "email"]
+        "required": ["id", "name", "email"]
       },
     "Community": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -82,7 +83,7 @@
         "users": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "An array containing the two user IDs in the conversation."
+          "description": "An array containing the user IDs in the conversation."
         },
         "user": {
            "type": "string",
@@ -93,7 +94,7 @@
             "description": "The ID of the community this channel belongs to."
         }
       },
-      "required": ["users", "community", "user"]
+      "required": ["community", "user"]
     }
   },
   "auth": {
