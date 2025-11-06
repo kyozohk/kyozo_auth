@@ -21,15 +21,28 @@ interface UserProfileProps {
 
 export function UserProfile({ userId, onSelect }: UserProfileProps) {
   const firestore = useFirestore();
-  const userDocRef = useMemoFirebase(() => {
+
+  const userDocRefLower = useMemoFirebase(() => {
+    if (!firestore || !userId) return null;
     return doc(firestore, 'users', userId);
   }, [userId, firestore]);
 
-  const { data: user, isLoading, error } = useDoc<UserProfileData>(userDocRef);
+  const userDocRefUpper = useMemoFirebase(() => {
+    if (!firestore || !userId) return null;
+    return doc(firestore, 'Users', userId);
+  }, [userId, firestore]);
+
+  const { data: userLower, isLoading: isLoadingLower, error: errorLower } = useDoc<UserProfileData>(userDocRefLower);
+  const { data: userUpper, isLoading: isLoadingUpper, error: errorUpper } = useDoc<UserProfileData>(userDocRefUpper);
+
+  const isLoading = isLoadingLower || isLoadingUpper;
+  const user = userLower || userUpper;
+  const error = user ? null : errorLower || errorUpper;
+
 
   if (isLoading) {
     return (
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-4 p-3">
         <Skeleton className="h-10 w-10 rounded-full" />
         <div className="space-y-2">
           <Skeleton className="h-4 w-[150px]" />
@@ -39,16 +52,26 @@ export function UserProfile({ userId, onSelect }: UserProfileProps) {
     );
   }
 
-  if (error) {
-    return <p className="text-destructive">Error loading user.</p>;
+  if (error && !user) {
+    return <p className="p-3 text-sm text-destructive">Could not load user: {userId}</p>;
   }
 
   if (!user) {
-    return null; // Or some fallback UI for user not found
+    return (
+        <div className="flex items-center space-x-4 p-3">
+            <Avatar>
+                <AvatarFallback>?</AvatarFallback>
+            </Avatar>
+            <div>
+                <p className="font-semibold">Unknown User</p>
+                <p className="text-sm text-muted-foreground">{userId}</p>
+            </div>
+      </div>
+    );
   }
 
-  const fullName = `${user.name} ${user.lastName}`;
-  const fallback = (user.name?.[0] ?? '') + (user.lastName?.[0] ?? '');
+  const fullName = `${user.name || ''} ${user.lastName || ''}`.trim() || user.email || 'Unnamed User';
+  const fallback = ((user.name?.[0] ?? '') + (user.lastName?.[0] ?? '')).trim() || 'U';
 
   return (
     <Button
@@ -62,7 +85,7 @@ export function UserProfile({ userId, onSelect }: UserProfileProps) {
         </Avatar>
         <div>
           <p className="font-semibold">{fullName}</p>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
+          {user.email && <p className="text-sm text-muted-foreground">{user.email}</p>}
         </div>
       </div>
     </Button>
