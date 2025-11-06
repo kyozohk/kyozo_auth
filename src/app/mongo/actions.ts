@@ -50,16 +50,8 @@ export async function getCommunities(): Promise<Community[]> {
     const communities = await db.collection('communities').find({}).limit(50).toArray();
     
     // Convert non-serializable BSON types to plain objects for the client
-    const plainCommunities = communities.map(c => {
-        return JSON.parse(JSON.stringify(c, (key, value) => {
-            if (value && typeof value === 'object' && value.type === 'Buffer') {
-                return undefined; // Exclude buffer properties
-            }
-            return value;
-        }));
-    });
-
-    return plainCommunities as Community[];
+    // A simple round-trip through JSON.stringify/parse handles most BSON types from the driver.
+    return JSON.parse(JSON.stringify(communities));
 }
 
 
