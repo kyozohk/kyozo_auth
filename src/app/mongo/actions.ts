@@ -66,7 +66,7 @@ export async function getCommunityMembers(communityId: string): Promise<{ member
         return { members: [], profiles: {} };
     }
 
-    const members = community.usersList as Member[];
+    const members = JSON.parse(JSON.stringify(community.usersList)) as Member[];
     const userIds = members.map(m => m.userId).filter(Boolean);
 
     // Fetch profiles from both 'users' and 'Users' collections
