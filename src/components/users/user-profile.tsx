@@ -30,32 +30,29 @@ interface UserProfileProps {
 export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: UserProfileProps) {
   const firestore = useFirestore();
 
-  // Directly fetch the user document using the UID as the document ID
+  // Try to fetch from 'users' collection
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
-    // First try the 'users' collection
     return doc(firestore, 'users', userId);
   }, [userId, firestore]);
-  
-  const { data: user, isLoading, error } = useDoc<UserProfileData>(userDocRef);
+  const { data: user, isLoading, error: userError } = useDoc<UserProfileData>(userDocRef);
 
-  // Fallback to 'Users' collection if the first one fails
+  // Always try to fetch from 'Users' collection as a fallback
   const upperUserDocRef = useMemoFirebase(() => {
-    // Only query this if the first one resulted in an error and we are not loading
-    if (!firestore || !userId || isLoading || user) return null;
-    if(error) return doc(firestore, 'Users', userId);
-    return null;
-  },[userId, firestore, isLoading, user, error])
+    if (!firestore || !userId) return null;
+    return doc(firestore, 'Users', userId);
+  },[userId, firestore]);
+  const { data: upperUser, isLoading: isLoadingUpper, error: upperUserError } = useDoc<UserProfileData>(upperUserDocRef);
 
-  const { data: upperUser, isLoading: isLoadingUpper } = useDoc<UserProfileData>(upperUserDocRef);
-
+  // Determine the final user data and loading state
   const finalUser = user || upperUser;
-  const finalIsLoading = isLoading || isLoadingUpper;
-
+  const finalIsLoading = (isLoading && !upperUser) || (isLoadingUpper && !user);
+  
   const fullName = useMemo(() => {
-     if (!finalUser) return 'Loading...';
+     if (finalIsLoading) return 'Loading...';
+     if (!finalUser) return 'User Not Found';
      return finalUser.displayName || `${finalUser.name || ''} ${finalUser.lastName || ''}`.trim() || finalUser.email || 'Unnamed User';
-  }, [finalUser])
+  }, [finalUser, finalIsLoading])
 
 
   useEffect(() => {
