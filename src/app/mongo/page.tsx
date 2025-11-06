@@ -88,9 +88,9 @@ export default function MongoDashboard() {
               Welcome, {user.email}!
             </p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
               {/* Community List */}
-              <div className="lg:col-span-1">
+              <div className="col-span-1">
                 <Card className='h-full'>
                   <CardContent className="pt-6 h-full flex flex-col">
                     <CommunityListMongo
@@ -104,7 +104,7 @@ export default function MongoDashboard() {
               </div>
 
               {/* Member List */}
-               <div className="lg:col-span-1">
+               <div className="col-span-1">
                 <Card className='h-full'>
                   <CardContent className="pt-6 h-full flex flex-col">
                     {!selectedCommunity ? (
@@ -126,7 +126,7 @@ export default function MongoDashboard() {
               </div>
 
               {/* Message List */}
-              <div className="lg-col-span-1">
+              <div className="col-span-1">
                 <Card className='h-full'>
                   <CardContent className="pt-6 h-full flex flex-col">
                     {!selectedMember ? (
@@ -139,7 +139,7 @@ export default function MongoDashboard() {
                       <MessageListMongo
                         messages={messages}
                         isLoading={isLoadingMessages}
-                        currentUserId={user.uid} // This might need to change depending on how you identify the current user in mongo
+                        currentUserId={user.uid}
                         selectedMember={selectedMember}
                         onBack={() => setSelectedMember(null)}
                       />
