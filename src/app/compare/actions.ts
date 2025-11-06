@@ -195,12 +195,19 @@ export async function fixAndSyncCommunity(communityId: string): Promise<{success
                 // Find the user in Firebase Auth by their email
                 const firebaseUserRecord = await auth.getUserByEmail(mongoUser.email);
                 
-                // Add the Firebase UID to our new list
-                newUsersList.push({
-                    ...member, // keep original data like joinedAt, etc.
+                // Create a serializable member object, converting ObjectIds to strings
+                const newMemberObject = {
+                    ...member,
                     userId: firebaseUserRecord.uid, // The CRITICAL CHANGE: use Firebase UID
-                    email: mongoUser.email, // Ensure email is present
-                });
+                    email: mongoUser.email,
+                };
+                
+                // Specifically check for and convert referralId if it's an ObjectId
+                if (newMemberObject.referralId && newMemberObject.referralId instanceof ObjectId) {
+                    newMemberObject.referralId = newMemberObject.referralId.toString();
+                }
+
+                newUsersList.push(newMemberObject);
 
             } catch (error: any) {
                 if (error.code === 'auth/user-not-found') {
