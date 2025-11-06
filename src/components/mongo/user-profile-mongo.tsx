@@ -30,7 +30,7 @@ export function UserProfileMongo({ userId, profile, onSelect, isSelected }: User
   }
   
   const fullName = `${profile.name || ''} ${profile.lastName || ''}`.trim() || profile.email || 'Unnamed User';
-  const fallback = ((profile.name?.[0] ?? '') + (profile.lastName?.[0] ?? '')).trim() || 'U';
+  const fallback = ((profile.name?.[0] ?? '') + (profile.lastName?.[0] ?? '')).trim() || profile.email?.[0] || 'U';
 
   return (
     <Button

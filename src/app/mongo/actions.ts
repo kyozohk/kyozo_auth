@@ -19,6 +19,7 @@ export interface Member {
 
 export interface UserProfile {
     _id: string;
+    id: string;
     name?: string;
     lastName?: string;
     email: string;
@@ -48,8 +49,17 @@ export async function getCommunities(): Promise<Community[]> {
     const db = await connectToDatabase();
     const communities = await db.collection('communities').find({}).limit(50).toArray();
     
-    // Convert ObjectId to string for client-side compatibility
-    return communities.map(c => ({...c, _id: c._id.toString() })) as Community[];
+    // Convert non-serializable BSON types to plain objects for the client
+    const plainCommunities = communities.map(c => {
+        return JSON.parse(JSON.stringify(c, (key, value) => {
+            if (value && typeof value === 'object' && value.type === 'Buffer') {
+                return undefined; // Exclude buffer properties
+            }
+            return value;
+        }));
+    });
+
+    return plainCommunities as Community[];
 }
 
 
@@ -77,8 +87,9 @@ export async function getCommunityMembers(communityId: string): Promise<{ member
 
     const processDocs = (docs: any[]) => {
         for (const doc of docs) {
-            const profile = { ...doc, _id: doc._id.toString() } as UserProfile;
-            // Use original 'id' field from mongo doc as the key
+            // Convert to plain object and handle ObjectId
+            const plainDoc = JSON.parse(JSON.stringify(doc));
+            const profile = { ...plainDoc, _id: plainDoc._id.toString() } as UserProfile;
             if (doc.id && !profiles[doc.id]) {
                 profiles[doc.id] = profile;
             }
@@ -120,7 +131,8 @@ export async function getMessages(communityId: string, currentUserId: string, se
         .sort({ createdAt: -1 })
         .limit(50)
         .toArray();
-      return messagesForUserChannel.map(m => ({ ...m, _id: m._id.toString() })) as Message[];
+      // Convert to plain objects before returning
+      return JSON.parse(JSON.stringify(messagesForUserChannel));
     }
   
     // 2. Fetch messages for that channel
@@ -130,6 +142,6 @@ export async function getMessages(communityId: string, currentUserId: string, se
       .limit(50)
       .toArray();
       
-    // Convert ObjectId to string
-    return messages.map(m => ({ ...m, _id: m._id.toString() })) as Message[];
+    // Convert to plain objects before returning
+    return JSON.parse(JSON.stringify(messages));
 }
