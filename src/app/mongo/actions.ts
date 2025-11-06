@@ -147,7 +147,7 @@ export async function getMessagesForMember(communityId: string, memberId: string
 
     const messagesFromDb: any[] = await db.collection('messages').aggregate([
       { $match: { channel: channel._id } },
-      { $sort: { createdAt: -1 } },
+      { $sort: { createdAt: 1 } },
       { $limit: 100 },
       {
         $lookup: {
