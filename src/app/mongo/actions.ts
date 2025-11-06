@@ -5,15 +5,16 @@ import { ObjectId } from 'mongodb';
 
 // Define interfaces for the data shapes
 export interface Community {
-    _id: string;
+    id: string;
     name: string;
     communityProfileImage?: string;
     usersList: Member[];
+    [key: string]: any;
 }
 
 export interface Member {
     userId: string;
-    email?: string; // It seems email is not always present
+    email?: string;
     [key: string]: any;
 }
 
@@ -49,8 +50,7 @@ export async function getCommunities(): Promise<Community[]> {
     const db = await connectToDatabase();
     const communities = await db.collection('communities').find({}).limit(50).toArray();
     
-    // Convert non-serializable BSON types to plain objects for the client.
-    // A simple round-trip through JSON.stringify/parse handles most BSON types from the driver.
+    // Convert to plain objects for the client, ensuring all ObjectIds are strings
     return JSON.parse(JSON.stringify(communities));
 }
 
@@ -59,7 +59,6 @@ export async function getCommunityMembers(communityId: string): Promise<{ member
     const db = await connectToDatabase();
     const communityObjectId = new ObjectId(communityId);
 
-    // Find the community to get the usersList
     const community = await db.collection('communities').findOne({ _id: communityObjectId });
 
     if (!community || !community.usersList) {
@@ -67,67 +66,43 @@ export async function getCommunityMembers(communityId: string): Promise<{ member
     }
 
     const members = JSON.parse(JSON.stringify(community.usersList)) as Member[];
-    const userIds = members.map(m => m.userId).filter(Boolean);
-
-    // Fetch profiles from both 'users' and 'Users' collections
-    const usersQuery = userIds.length > 0 ? db.collection('users').find({ id: { $in: userIds } }).toArray() : Promise.resolve([]);
-    const upperUsersQuery = userIds.length > 0 ? db.collection('Users').find({ id: { $in: userIds } }).toArray() : Promise.resolve([]);
     
-    const [userDocs, upperUserDocs] = await Promise.all([usersQuery, upperUsersQuery]);
+    // The userIds in usersList are strings that need to be converted to ObjectIds for the query
+    const userOids = members.map(m => m.userId).filter(Boolean).map(id => new ObjectId(id));
     
     const profiles: Record<string, UserProfile> = {};
 
-    const processDocs = (docs: any[]) => {
-        for (const doc of docs) {
-            // Convert to plain object and handle ObjectId
+    if (userOids.length > 0) {
+        const userDocs = await db.collection('users').find({ _id: { $in: userOids } }).toArray();
+
+        for (const doc of userDocs) {
             const plainDoc = JSON.parse(JSON.stringify(doc));
-            const profile = { ...plainDoc, _id: plainDoc._id.toString() } as UserProfile;
-            if (doc.id && !profiles[doc.id]) {
-                profiles[doc.id] = profile;
+            const profile = { ...plainDoc, _id: plainDoc._id.toString(), id: plainDoc._id.toString() } as UserProfile;
+            // Use the original string userId from the members array as the key
+            const originalUserId = members.find(m => m.userId === profile._id)?.userId;
+            if (originalUserId) {
+                profiles[originalUserId] = profile;
             }
         }
     }
-
-    processDocs(userDocs);
-    processDocs(upperUserDocs);
-
+    
     return { members, profiles };
 }
 
 export async function getMessages(communityId: string, currentUserId: string, selectedUserId: string): Promise<Message[]> {
     const db = await connectToDatabase();
-    const communityObjectId = new ObjectId(communityId);
-  
-    // 1. Find the channel connecting the two users within the community
-    // This is a simplified version. A real implementation might need more robust logic
-    // to handle cases where multiple channels could exist.
+    
+    // Find the channel that includes the selected member
     const channel = await db.collection('channels').findOne({
-      community: communityObjectId,
-      // Check both directions for the user pair
-      $or: [
-        { users: { $all: [currentUserId, selectedUserId] } },
-        // This logic might need to be adapted based on how `users` array is stored
-      ]
+      community: new ObjectId(communityId),
+      user: new ObjectId(selectedUserId)
     });
 
     if (!channel) {
-      // Also check where user field is the selectedUserId
-      const userChannel = await db.collection('channels').findOne({
-        community: communityObjectId,
-        user: selectedUserId,
-      });
-      if(!userChannel) return [];
-
-      const messagesForUserChannel = await db.collection('messages')
-        .find({ channel: userChannel._id })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .toArray();
-      // Convert to plain objects before returning
-      return JSON.parse(JSON.stringify(messagesForUserChannel));
+      return [];
     }
   
-    // 2. Fetch messages for that channel
+    // Fetch messages for that channel
     const messages = await db.collection('messages')
       .find({ channel: channel._id })
       .sort({ createdAt: -1 })

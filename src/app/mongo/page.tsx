@@ -44,14 +44,17 @@ export default function MongoDashboard() {
   }, []);
 
   const handleCommunitySelect = async (community: Community) => {
+    if (community._id === selectedCommunity?._id) return;
     setSelectedCommunity(community);
     setSelectedMember(null);
     setMessages([]);
     setIsLoadingMembers(true);
+    setMembers([]);
+    setUserProfiles({});
     try {
-        const { members, profiles } = await getCommunityMembers(community._id);
-        setMembers(members);
-        setUserProfiles(prev => ({...prev, ...profiles}));
+        const { members: fetchedMembers, profiles: fetchedProfiles } = await getCommunityMembers(community._id);
+        setMembers(fetchedMembers);
+        setUserProfiles(fetchedProfiles);
     } catch (error) {
         console.error('Failed to fetch members:', error);
         setMembers([]);

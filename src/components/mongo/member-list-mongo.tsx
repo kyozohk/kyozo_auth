@@ -17,16 +17,21 @@ export function MemberListMongo({ members, profiles, isLoading, onMemberSelect, 
   
   const filteredMembers = React.useMemo(() => {
     if (!members) return [];
-    if (!searchTerm) return members;
+    
+    // First, filter out members that do not have a profile yet if profiles are still loading
+    const availableMembers = members.filter(member => profiles[member.userId]);
+
+    if (!searchTerm) return availableMembers;
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    return members.filter(member => {
+
+    return availableMembers.filter(member => {
       const profile = profiles[member.userId];
       if (profile) {
         const name = `${profile.name || ''} ${profile.lastName || ''}`.trim();
         const email = profile.email || '';
         return name.toLowerCase().includes(lowerCaseSearchTerm) || email.toLowerCase().includes(lowerCaseSearchTerm);
       }
-      return false; // Don't show if profile not loaded yet
+      return false;
     });
   }, [members, searchTerm, profiles]);
 
@@ -65,7 +70,7 @@ export function MemberListMongo({ members, profiles, isLoading, onMemberSelect, 
             />
           </div>
         ))}
-        {members.length > 0 && filteredMembers.length === 0 && (
+        {members.length > 0 && filteredMembers.length === 0 && !isLoading && (
             <p className="p-4 text-center text-sm text-muted-foreground">
             No members match your search.
         </p>
