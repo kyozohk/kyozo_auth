@@ -97,28 +97,37 @@ export function MessageListMongo({ messages, isLoading, currentUserId, selectedM
                             <div
                                 key={message.id}
                                 className={cn(
-                                'group flex items-start gap-3 p-3 relative rounded-lg',
-                                isSender ? 'flex-row-reverse' : 'flex-row'
+                                'group flex w-full items-start gap-3 p-3 relative rounded-lg',
+                                isSender && 'justify-end'
                                 )}
                             >
-                                <Avatar className={cn(isSender && 'hidden')}>
-                                    <AvatarImage src={message.sender.photoURL} />
-                                    <AvatarFallback>{message.sender.displayName?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
-                                </Avatar>
+                                {!isSender && (
+                                    <Avatar>
+                                        <AvatarImage src={message.sender.photoURL} />
+                                        <AvatarFallback>{message.sender.displayName?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+                                    </Avatar>
+                                )}
 
-                                <div className={cn('flex-1 max-w-[80%]', isSender && 'text-right')}>
+                                <div className={cn('flex flex-col max-w-[80%]', isSender ? 'items-end' : 'items-start')}>
                                     <p className="font-semibold">{isSender ? 'You' : message.sender.displayName}</p>
                                     <p className="text-xs text-muted-foreground">
                                         {format(new Date(message.createdAt), 'Pp')}
                                     </p>
                                      <div className={cn(
-                                        'mt-1 inline-block rounded-lg px-3 py-2 text-left',
+                                        'mt-1 inline-block rounded-lg px-3 py-2',
                                         isSender ? 'bg-primary text-primary-foreground' : 'bg-muted'
                                     )}>
                                         <p className="text-sm">{message.text}</p>
                                     </div>
                                 </div>
                                 
+                                {isSender && (
+                                    <Avatar>
+                                        <AvatarImage src={message.sender.photoURL} />
+                                        <AvatarFallback>{message.sender.displayName?.charAt(0).toUpperCase() || 'Y'}</AvatarFallback>
+                                    </Avatar>
+                                )}
+
                                 <Button
                                     variant="ghost"
                                     size="icon"
