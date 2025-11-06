@@ -72,7 +72,7 @@
         "senderId": { "type": "string", "description": "The UID of the user who sent the message." },
         "senderName": { "type": "string" }
       },
-      "required": ["text", "createdAt", "senderId", "senderName"]
+      "required": ["text", "createdAt", "senderId"]
     }
   },
   "auth": {

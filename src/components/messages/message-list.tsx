@@ -69,12 +69,12 @@ export function MessageList({ userId, userName, onBack }: MessageListProps) {
           {messages.map((message) => (
             <div key={message.id} className="flex items-start space-x-3 p-3 border rounded-md">
                <Avatar>
-                    <AvatarFallback>{message.senderName.charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{message.senderName ? message.senderName.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                 </Avatar>
               <div>
-                <p className="font-semibold">{message.senderName}</p>
+                <p className="font-semibold">{message.senderName || 'Unknown Sender'}</p>
                 <p className="text-sm text-muted-foreground">
-                  {new Date(message.createdAt?.toDate()).toLocaleString()}
+                  {message.createdAt?.toDate ? new Date(message.createdAt.toDate()).toLocaleString() : 'No date'}
                 </p>
                 <p className="mt-1">{message.text}</p>
               </div>
