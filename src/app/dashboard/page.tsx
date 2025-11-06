@@ -68,7 +68,6 @@ export default function Dashboard() {
                           <MemberList
                             communityId={selectedCommunityId}
                             onMemberSelect={handleMemberSelect}
-                            onBack={handleBackToCommunities}
                           />
                            <div className="hidden lg:flex flex-col items-center justify-center h-full">
                               <p className="text-muted-foreground text-center">

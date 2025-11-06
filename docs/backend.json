@@ -27,6 +27,18 @@
         "signUpTimestamp"
       ]
     },
+    "UserProfile": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "UserProfile",
+        "type": "object",
+        "description": "Represents a user's public profile.",
+        "properties": {
+          "name": { "type": "string" },
+          "lastName": { "type": "string" },
+          "email": { "type": "string", "format": "email" }
+        },
+        "required": ["name", "lastName", "email"]
+      },
     "Community": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Community",
@@ -38,17 +50,17 @@
       },
       "required": ["name", "createdAt"]
     },
-    "Member": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Member",
-      "type": "object",
-      "description": "Represents a member within a community.",
-      "properties": {
-        "name": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "member"] }
+    "Participation": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Participation",
+        "type": "object",
+        "description": "Links a user to a community, signifying membership.",
+        "properties": {
+          "communityId": { "type": "string" },
+          "userId": { "type": "string" }
+        },
+        "required": ["communityId", "userId"]
       },
-      "required": ["name", "role"]
-    },
     "Message": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Message",
@@ -74,7 +86,7 @@
       {
         "path": "/users/{userId}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/User" },
+          "schema": { "$ref": "#/backend/entities/UserProfile" },
           "description": "Stores user profile data."
         }
       },
@@ -86,10 +98,10 @@
         }
       },
       {
-        "path": "/communities/{communityId}/members/{memberId}",
+        "path": "/participations/{participationId}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/Member" },
-          "description": "Sub-collection for members within a community. memberId should be a userId."
+          "schema": { "$ref": "#/backend/entities/Participation" },
+          "description": "Collection linking users and communities."
         }
       },
       {
