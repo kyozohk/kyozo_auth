@@ -16,46 +16,53 @@ async function getFirestoreUser(userId: string): Promise<any | null> {
     if (!userId) return null;
 
     try {
-        // Firestore user IDs are typically the document ID, so we use .doc().get()
-        const userDocRef = firestore.collection('users').doc(userId);
-        const userDoc = await userDocRef.get();
+        // 1. Try to get user by document ID (if userId is a Firebase UID)
+        let userDoc = await firestore.collection('users').doc(userId).get();
         if (userDoc.exists) {
             return { id: userDoc.id, ...userDoc.data() };
         }
-
-        // As a fallback, check the 'Users' collection as well
-        const upperUserDocRef = firestore.collection('Users').doc(userId);
-        const upperUserDoc = await upperUserDocRef.get();
-        if (upperUserDoc.exists) {
-            return { id: upperUserDoc.id, ...upperUserDoc.data() };
+        userDoc = await firestore.collection('Users').doc(userId).get();
+         if (userDoc.exists) {
+            return { id: userDoc.id, ...userDoc.data() };
         }
 
-        // Fallback query if the document ID is not the UID
-        const userQuery = await firestore.collection('users').where('id', '==', userId).limit(1).get();
+        // 2. Query for user where 'originalMongoId' field matches the userId from community
+        let userQuery = await firestore.collection('users').where('originalMongoId', '==', userId).limit(1).get();
+        if (!userQuery.empty) {
+            const doc = userQuery.docs[0];
+            return { id: doc.id, ...doc.data() };
+        }
+        userQuery = await firestore.collection('Users').where('originalMongoId', '==', userId).limit(1).get();
         if (!userQuery.empty) {
             const doc = userQuery.docs[0];
             return { id: doc.id, ...doc.data() };
         }
 
-        const upperUserQuery = await firestore.collection('Users').where('id', '==', userId).limit(1).get();
-        if (!upperUserQuery.empty) {
-            const doc = upperUserQuery.docs[0];
+        // 3. Fallback: Query where 'id' field matches (as was originally tried)
+        userQuery = await firestore.collection('users').where('id', '==', userId).limit(1).get();
+        if (!userQuery.empty) {
+            const doc = userQuery.docs[0];
             return { id: doc.id, ...doc.data() };
         }
-        
+         userQuery = await firestore.collection('Users').where('id', '==', userId).limit(1).get();
+        if (!userQuery.empty) {
+            const doc = userQuery.docs[0];
+            return { id: doc.id, ...doc.data() };
+        }
+
         console.warn(`Firestore user not found for ID: ${userId}`);
         return null;
 
     } catch (error) {
         console.error(`Error fetching Firestore user ${userId}:`, error);
+        return { id: userId, error: 'Not Found' };
     }
-    return { id: userId, error: 'Not Found' };
 }
 
 
 export async function getFirestoreCommunitiesWithMembers(): Promise<FirestoreCommunityWithMembers[]> {
     try {
-        const communitiesSnapshot = await firestore.collection('communities').get();
+        const communitiesSnapshot = await firestore.collection('communities').where('name', '==', 'Souta').limit(1).get();
         if (communitiesSnapshot.empty) {
             return [];
         }
@@ -81,7 +88,6 @@ export async function getFirestoreCommunitiesWithMembers(): Promise<FirestoreCom
             })
         );
         
-        // A simple way to ensure serializability
         return JSON.parse(JSON.stringify(communitiesWithMembers));
 
     } catch (error) {
@@ -104,9 +110,11 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
         const db = await connectToDatabase();
         const communities = await db
             .collection('communities')
-            .find({})
-            .sort({ name: 1 })
+            .find({ name: 'Souta' })
+            .limit(1)
             .toArray();
+
+        if (communities.length === 0) return [];
 
         const communitiesWithMembers = await Promise.all(
             communities.map(async (community) => {
@@ -115,9 +123,14 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
 
                  if (community.usersList && Array.isArray(community.usersList)) {
                     const userOids = community.usersList
-                        .map((user: any) => user.userId)
-                        .filter((id: any) => id) // Filter out null/undefined IDs
-                        .map((id: any) => new ObjectId(id)); // Convert to ObjectId
+                        .map((user: any) => {
+                            try {
+                                return new ObjectId(user.userId)
+                            } catch (e) {
+                                return null;
+                            }
+                        })
+                        .filter((id: any) => id); // Filter out null/undefined IDs
 
                     if (userOids.length > 0) {
                         const fetchedUsers = await db
@@ -137,7 +150,6 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
             })
         );
 
-        // Deep serialization to handle all BSON types
         return JSON.parse(JSON.stringify(communitiesWithMembers));
 
     } catch (error) {
