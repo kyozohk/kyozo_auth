@@ -11,9 +11,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useUser } from '@/firebase';
 import { Input } from '../ui/input';
-import { setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useDoc } from '@/firebase/firestore/use-doc';
+import { doc } from 'firebase/firestore';
 
 
 interface Message {
@@ -21,6 +23,7 @@ interface Message {
   text: string;
   createdAt: any;
   sender: string; // user ID
+  channel: string;
   [key: string]: any;
 }
 
@@ -32,10 +35,12 @@ interface Channel {
 
 interface UserProfile {
     id: string;
-    name: string;
+    name?: string;
     lastName?: string;
+    displayName?: string;
     email: string;
     profileImage?: string;
+    photoURL?: string;
 }
 
 interface MessageListProps {
@@ -46,12 +51,23 @@ interface MessageListProps {
   onBack: () => void;
 }
 
+// Custom hook to fetch a user profile
+function useUserProfile(userId: string) {
+    const firestore = useFirestore();
+    const userDocRef = useMemoFirebase(() => {
+        if (!userId) return null;
+        return doc(firestore, 'users', userId);
+    }, [userId, firestore]);
+    const { data: user, isLoading } = useDoc<UserProfile>(userDocRef);
+    return { user, isLoading };
+}
+
+
 export function MessageList({ currentUserId, selectedUserId, selectedUserName, selectedCommunityId, onBack }: MessageListProps) {
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
   const { toast } = useToast();
   const [channelId, setChannelId] = useState<string | null>(null);
-  const [userProfiles, setUserProfiles] = useState<Record<string, UserProfile>>({});
   const [isLoadingChannel, setIsLoadingChannel] = useState(true);
   const [newMessage, setNewMessage] = useState('');
 
@@ -65,8 +81,7 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
         setIsLoadingChannel(true);
         const channelsRef = collection(firestore, 'channels');
         
-        // Firestore doesn't support querying for two different 'array-contains' on the same field.
-        // We query for one user and then filter the results on the client.
+        // Query for channels in the community that include the current user
         const q = query(
             channelsRef, 
             where('community', '==', selectedCommunityId),
@@ -76,9 +91,10 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
         try {
             const snapshot = await getDocs(q);
             let foundChannelId = null;
+            // Client-side filter to find the channel that ALSO includes the selected user
             for (const doc of snapshot.docs) {
-                const channel = doc.data() as Channel;
-                if (channel.users && channel.users.includes(selectedUserId)) {
+                const channelData = doc.data();
+                if (channelData.users && channelData.users.includes(selectedUserId)) {
                     foundChannelId = doc.id;
                     break; 
                 }
@@ -108,52 +124,10 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
 
   const { data: messages, isLoading: isLoadingMessages, error } = useCollection<Message>(messagesQuery);
   
-  // 3. Fetch profiles for senders
-  const senderIds = useMemo(() => {
-    if (!messages) return [];
-    return [...new Set(messages.map(m => m.sender))];
-  }, [messages]);
+  // 3. Fetch profiles for sender and receiver for avatars
+  const { user: selectedUserProfile } = useUserProfile(selectedUserId);
+  const { user: currentUserProfile } = useUserProfile(currentUserId);
 
-  useEffect(() => {
-      const fetchProfiles = async () => {
-        if (!senderIds || senderIds.length === 0 || !firestore) return;
-        
-        const idsToFetch = senderIds.filter(id => !userProfiles[id]);
-        if (idsToFetch.length === 0) return;
-
-        const newProfiles: Record<string, UserProfile> = {};
-
-        const fetchChunk = async (chunk: string[]) => {
-            const usersQuery = query(collection(firestore, 'users'), where('id', 'in', chunk));
-            const upperUsersQuery = query(collection(firestore, 'Users'), where('id', 'in', chunk));
-            
-            const [usersSnapshot, upperUsersSnapshot] = await Promise.all([
-                getDocs(usersQuery),
-                getDocs(upperUsersQuery)
-            ]);
-
-            usersSnapshot.forEach(doc => {
-                const data = doc.data() as UserProfile;
-                if(data.id) newProfiles[data.id] = data;
-            });
-            upperUsersSnapshot.forEach(doc => {
-                const data = doc.data() as UserProfile;
-                if(data.id && !newProfiles[data.id]) newProfiles[data.id] = data;
-            });
-        }
-        
-        // Firestore 'in' query has a limit of 30 values.
-        for (let i = 0; i < idsToFetch.length; i += 30) {
-            const chunk = idsToFetch.slice(i, i + 30);
-            await fetchChunk(chunk);
-        }
-
-        if (Object.keys(newProfiles).length > 0) {
-            setUserProfiles(prev => ({...prev, ...newProfiles}));
-        }
-      };
-      fetchProfiles();
-  }, [senderIds, firestore, userProfiles]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,7 +137,7 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
     addDocumentNonBlocking(messagesCol, {
         text: newMessage,
         createdAt: serverTimestamp(),
-        sender: currentUser.uid, // This should be the Firebase Auth UID
+        sender: currentUser.uid, 
         channel: channelId,
     });
     setNewMessage('');
@@ -179,22 +153,21 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
 
   const getSenderName = (senderId: string) => {
       if (senderId === currentUserId) return 'You';
-      const profile = Object.values(userProfiles).find(p => p.id === senderId);
-      if (profile) return `${profile.name || ''} ${profile.lastName || ''}`.trim() || profile.email;
-      return selectedUserName;
+      return selectedUserProfile?.displayName || selectedUserProfile?.name || selectedUserName;
   };
 
    const getSenderAvatar = (senderId: string) => {
-      if (senderId === currentUserId) return currentUser?.photoURL;
-      const profile = Object.values(userProfiles).find(p => p.id === senderId);
-      return profile?.profileImage;
+      if (senderId === currentUserId) return currentUserProfile?.photoURL || currentUser?.photoURL;
+      return selectedUserProfile?.photoURL;
   };
 
    const getSenderFallback = (senderId: string) => {
-      if (senderId === currentUserId) return currentUser?.displayName?.charAt(0) || 'Y';
-      const profile = Object.values(userProfiles).find(p => p.id === senderId);
-      if(profile) return ((profile.name?.[0] ?? '') + (profile.lastName?.[0] ?? '')).trim() || 'U';
-      return selectedUserName.charAt(0);
+      if (senderId === currentUserId) {
+        const name = currentUserProfile?.displayName || currentUser?.displayName || 'Y';
+        return name.charAt(0);
+      }
+      const name = selectedUserProfile?.displayName || selectedUserProfile?.name || selectedUserName;
+      return name.charAt(0);
   };
 
 
@@ -227,7 +200,6 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
             {isLoading && renderSkeleton()}
             {error && <p className="text-destructive">Error: {error.message}</p>}
             {!isLoading && !error && messages && messages.map((message) => {
-                const senderName = getSenderName(message.sender);
                 const isSender = message.sender === currentUserId;
                 return (
                     <div
@@ -244,7 +216,7 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, s
                             </Avatar>
                         )}
                         <div className={cn('flex flex-col max-w-[80%]', isSender ? 'items-end' : 'items-start')}>
-                             <p className="font-semibold text-sm">{senderName}</p>
+                             <p className="font-semibold text-sm">{getSenderName(message.sender)}</p>
                             <p className="text-xs text-muted-foreground">
                                 {message.createdAt?.toDate ? new Date(message.createdAt.toDate()).toLocaleString() : ''}
                             </p>

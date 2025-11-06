@@ -1,7 +1,7 @@
 'use client';
 
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query, where, limit } from 'firebase/firestore';
+import { useDoc } from '@/firebase/firestore/use-doc';
+import { doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,16 +10,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import React, { useEffect, useMemo } from 'react';
 
 interface UserProfileData {
-  id: string;
-  name: string;
+  id: string; // This should be the Firebase UID
+  name?: string;
   lastName?: string;
+  displayName?: string;
   email: string;
   profileImage?: string;
+  photoURL?: string;
   [key: string]: any; // Allow other properties
 }
 
 interface UserProfileProps {
-  userId: string;
+  userId: string; // Expecting Firebase UID
   onSelect: (userId: string, userName: string) => void;
   isSelected?: boolean;
   onProfileLoad?: (userId: string, profile: UserProfileData) => void;
@@ -28,38 +30,42 @@ interface UserProfileProps {
 export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: UserProfileProps) {
   const firestore = useFirestore();
 
-  // Query 'users' collection where 'id' field == userId
-  const usersQuery = useMemoFirebase(() => {
+  // Directly fetch the user document using the UID as the document ID
+  const userDocRef = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
-    return query(collection(firestore, 'users'), where('id', '==', userId), limit(1));
+    // First try the 'users' collection
+    return doc(firestore, 'users', userId);
   }, [userId, firestore]);
-  const { data: usersResult, isLoading: isLoadingUsers } = useCollection<UserProfileData>(usersQuery);
-
-  // Query 'Users' collection where 'id' field == userId
-  const upperUsersQuery = useMemoFirebase(() => {
-    if (!firestore || !userId) return null;
-    return query(collection(firestore, 'Users'), where('id', '==', userId), limit(1));
-  }, [userId, firestore]);
-  const { data: upperUsersResult, isLoading: isLoadingUpperUsers } = useCollection<UserProfileData>(upperUsersQuery);
-
-  const user = useMemo(() => {
-    if (usersResult && usersResult.length > 0) return usersResult[0];
-    if (upperUsersResult && upperUsersResult.length > 0) return upperUsersResult[0];
-    return null;
-  }, [usersResult, upperUsersResult]);
   
-  const isLoading = isLoadingUsers || isLoadingUpperUsers;
+  const { data: user, isLoading, error } = useDoc<UserProfileData>(userDocRef);
 
-  const fullName = user ? `${user.name || ''} ${user.lastName || ''}`.trim() || user.email || 'Unnamed User' : 'Loading...';
+  // Fallback to 'Users' collection if the first one fails
+  const upperUserDocRef = useMemoFirebase(() => {
+    // Only query this if the first one resulted in an error and we are not loading
+    if (!firestore || !userId || isLoading || user) return null;
+    if(error) return doc(firestore, 'Users', userId);
+    return null;
+  },[userId, firestore, isLoading, user, error])
+
+  const { data: upperUser, isLoading: isLoadingUpper } = useDoc<UserProfileData>(upperUserDocRef);
+
+  const finalUser = user || upperUser;
+  const finalIsLoading = isLoading || isLoadingUpper;
+
+  const fullName = useMemo(() => {
+     if (!finalUser) return 'Loading...';
+     return finalUser.displayName || `${finalUser.name || ''} ${finalUser.lastName || ''}`.trim() || finalUser.email || 'Unnamed User';
+  }, [finalUser])
+
 
   useEffect(() => {
-    if (user && onProfileLoad) {
-      onProfileLoad(userId, user);
+    if (finalUser && onProfileLoad) {
+      onProfileLoad(userId, finalUser);
     }
-  }, [user, userId, onProfileLoad]);
+  }, [finalUser, userId, onProfileLoad]);
 
 
-  if (isLoading) {
+  if (finalIsLoading) {
     return (
       <div className="flex items-center space-x-4 p-3 w-full">
         <Skeleton className="h-10 w-10 rounded-full" />
@@ -71,21 +77,22 @@ export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: Use
     );
   }
 
-  if (!user) {
+  if (!finalUser) {
     return (
         <div className="flex items-center space-x-4 p-3 opacity-50 w-full">
             <Avatar>
             <AvatarFallback>?</AvatarFallback>
             </Avatar>
             <div>
-            <p className="font-semibold">Unknown User</p>
-            <p className="text-sm text-muted-foreground">{userId}</p>
+            <p className="font-semibold text-destructive">User Not Found</p>
+            <p className="text-xs text-muted-foreground">{userId}</p>
             </div>
         </div>
     );
   }
   
-  const fallback = ((user.name?.[0] ?? '') + (user.lastName?.[0] ?? '')).trim() || 'U';
+  const fallbackName = finalUser.name || finalUser.displayName || '';
+  const fallback = ((fallbackName?.[0] ?? '') + (finalUser.lastName?.[0] ?? '')).trim() || 'U';
 
   return (
     <Button
@@ -95,12 +102,12 @@ export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: Use
     >
       <div className="flex items-center space-x-3 text-left">
         <Avatar>
-          <AvatarImage src={user.profileImage} alt={fullName} />
+          <AvatarImage src={finalUser.profileImage || finalUser.photoURL} alt={fullName} />
           <AvatarFallback>{fallback.toUpperCase()}</AvatarFallback>
         </Avatar>
         <div className='flex-1 truncate'>
           <p className="font-semibold truncate">{fullName}</p>
-          {user.email && <p className="text-sm text-muted-foreground truncate">{user.email}</p>}
+          {finalUser.email && <p className="text-sm text-muted-foreground truncate">{finalUser.email}</p>}
         </div>
       </div>
     </Button>
