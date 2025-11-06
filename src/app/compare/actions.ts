@@ -126,6 +126,7 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
                     const userOids = community.usersList
                         .map((user: any) => {
                             try {
+                                // The userId from usersList is already a string of the ObjectId
                                 return new ObjectId(user.userId)
                             } catch (e) {
                                 console.error(`Invalid ObjectId format for userId: ${user.userId}`);
