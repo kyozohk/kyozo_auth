@@ -125,12 +125,15 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
                     const userOids = community.usersList
                         .map((user: any) => {
                             try {
+                                // The userId from usersList is already a string in your data, 
+                                // so we create an ObjectId from it.
                                 return new ObjectId(user.userId)
                             } catch (e) {
+                                console.error(`Invalid ObjectId format for userId: ${user.userId}`);
                                 return null;
                             }
                         })
-                        .filter((id: any) => id); // Filter out null/undefined IDs
+                        .filter((id: any) => id); // Filter out null/invalid IDs
 
                     if (userOids.length > 0) {
                         const fetchedUsers = await db
