@@ -48,6 +48,8 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
+      // By calling sendPasswordResetEmail without a second argument,
+      // we are using the default Firebase password reset flow.
       await sendPasswordResetEmail(auth, data.email);
       setIsSubmitted(true);
     } catch (error: any) {
@@ -68,7 +70,7 @@ export default function ForgotPasswordPage() {
           <CardHeader>
             <CardTitle className="text-2xl font-headline">Check your email</CardTitle>
             <CardDescription>
-              We&apos;ve sent a password reset link to your email address.
+              We've sent a password reset link to your email address.
             </CardDescription>
           </CardHeader>
           <CardFooter>
