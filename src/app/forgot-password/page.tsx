@@ -48,11 +48,7 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      const actionCodeSettings = {
-        url: `${window.location.origin}/reset-password`,
-        handleCodeInApp: true,
-      };
-      await sendPasswordResetEmail(auth, data.email, actionCodeSettings);
+      await sendPasswordResetEmail(auth, data.email);
       setIsSubmitted(true);
     } catch (error: any) {
       toast({
