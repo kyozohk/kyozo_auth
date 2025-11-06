@@ -42,6 +42,9 @@ async function getFirestoreUser(userId: string): Promise<any | null> {
             const doc = upperUserQuery.docs[0];
             return { id: doc.id, ...doc.data() };
         }
+        
+        console.warn(`Firestore user not found for ID: ${userId}`);
+        return null;
 
     } catch (error) {
         console.error(`Error fetching Firestore user ${userId}:`, error);
@@ -113,7 +116,8 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
                  if (community.usersList && Array.isArray(community.usersList)) {
                     const userOids = community.usersList
                         .map((user: any) => user.userId)
-                        .filter(Boolean); // Filter out null/undefined IDs
+                        .filter((id: any) => id) // Filter out null/undefined IDs
+                        .map((id: any) => new ObjectId(id)); // Convert to ObjectId
 
                     if (userOids.length > 0) {
                         const fetchedUsers = await db
