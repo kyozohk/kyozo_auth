@@ -11,6 +11,7 @@ import { CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface MessageListProps {
   messages: Message[];
@@ -90,30 +91,49 @@ export function MessageListMongo({ messages, isLoading, currentUserId, selectedM
             <div className="px-6">
                 {isLoading ? renderSkeleton() : (
                     <div className="space-y-4">
-                        {filteredMessages.map((message) => (
-                            <div key={message.id} className="group flex items-start space-x-3 p-3 relative">
-                                <Avatar>
+                        {filteredMessages.map((message) => {
+                            const isSender = message.sender.uid === currentUserId;
+                            return (
+                            <div
+                                key={message.id}
+                                className={cn(
+                                'group flex items-start gap-3 p-3 relative rounded-lg',
+                                isSender ? 'flex-row-reverse' : 'flex-row'
+                                )}
+                            >
+                                <Avatar className={cn(isSender && 'hidden')}>
                                     <AvatarImage src={message.sender.photoURL} />
                                     <AvatarFallback>{message.sender.displayName?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
                                 </Avatar>
-                                <div className='flex-1'>
-                                    <p className="font-semibold">{message.sender.displayName}</p>
+
+                                <div className={cn('flex-1 max-w-[80%]', isSender && 'text-right')}>
+                                    <p className="font-semibold">{isSender ? 'You' : message.sender.displayName}</p>
                                     <p className="text-xs text-muted-foreground">
                                         {format(new Date(message.createdAt), 'Pp')}
                                     </p>
-                                    <p className="mt-1 text-sm">{message.text}</p>
+                                     <div className={cn(
+                                        'mt-1 inline-block rounded-lg px-3 py-2 text-left',
+                                        isSender ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                                    )}>
+                                        <p className="text-sm">{message.text}</p>
+                                    </div>
                                 </div>
+                                
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 absolute top-2 right-2"
+                                    className={cn(
+                                        "h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 absolute top-2",
+                                        isSender ? "left-2" : "right-2"
+                                    )}
                                     onClick={(e) => { e.stopPropagation(); handleCopy(message); }}
                                     title="Copy JSON"
                                 >
                                     <Copy className="h-4 w-4" />
                                 </Button>
                             </div>
-                        ))}
+                            )
+                        })}
                         {!isLoading && messages?.length === 0 && <p className='text-sm text-muted-foreground p-4 text-center'>No messages found.</p>}
                         {!isLoading && messages?.length > 0 && filteredMessages.length === 0 && <p className='text-sm text-muted-foreground p-4 text-center'>No messages match your search.</p>}
                     </div>
