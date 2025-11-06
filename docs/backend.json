@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account in the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "signUpTimestamp": {
+          "type": "string",
+          "description": "Timestamp of when the user signed up.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "signUpTimestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile data. Access is restricted to the user with matching userId.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, matching the Firebase Authentication UID."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This design prioritizes simplicity and security for basic user authentication. All user data is stored under the `/users/{userId}` path, making ownership clear and simplifying security rules. Authorization Independence is achieved because access control relies solely on the `request.auth.uid` matching the `userId` path segment; no data denormalization is necessary for this specific, simple use case. Segregation is ensured because all documents within `/users/{userId}` share the same security posture (private to the user). This structure supports QAPs because list operations can be secured based on the path structure itself, without needing to filter based on document content."
+  }
+}
