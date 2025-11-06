@@ -1,14 +1,13 @@
 'use client';
 
-import { useCollection, useDoc } from '@/firebase/firestore/use-doc';
-import { collection, query, where, limit, doc } from 'firebase/firestore';
+import { useDoc } from '@/firebase/firestore/use-doc';
+import { doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface UserProfileData {
   id: string;
@@ -22,9 +21,10 @@ interface UserProfileProps {
   userId: string;
   onSelect: (userId: string, userName: string) => void;
   isSelected?: boolean;
+  onProfileLoad?: (userId: string, name: string, email: string) => void;
 }
 
-export function UserProfile({ userId, onSelect, isSelected }: UserProfileProps) {
+export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: UserProfileProps) {
   const firestore = useFirestore();
 
   // Try fetching from 'users' collection by ID
@@ -44,6 +44,14 @@ export function UserProfile({ userId, onSelect, isSelected }: UserProfileProps) 
 
   const user = userById || upperUserById;
   const isLoading = isLoadingById || isLoadingUpperById;
+
+  const fullName = user ? `${user.name || ''} ${user.lastName || ''}`.trim() || user.email || 'Unnamed User' : 'Loading...';
+
+  useEffect(() => {
+    if (user && onProfileLoad) {
+      onProfileLoad(userId, fullName, user.email || '');
+    }
+  }, [user, userId, fullName, onProfileLoad]);
 
 
   if (isLoading) {
@@ -71,8 +79,7 @@ export function UserProfile({ userId, onSelect, isSelected }: UserProfileProps) 
       </div>
     );
   }
-
-  const fullName = `${user.name || ''} ${user.lastName || ''}`.trim() || user.email || 'Unnamed User';
+  
   const fallback = ((user.name?.[0] ?? '') + (user.lastName?.[0] ?? '')).trim() || 'U';
 
   return (

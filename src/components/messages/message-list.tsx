@@ -1,7 +1,7 @@
 'use client';
 
-import { useCollection, useDoc } from '@/firebase/firestore/use-collection';
-import { collection, query, orderBy, where, doc, getDocs, limit } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, query, orderBy, where, getDocs, limit } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,61 +15,120 @@ interface Message {
   id: string;
   text: string;
   createdAt: any;
-  senderId: string;
-  senderName: string;
+  sender: string; // user ID
+  // Assuming senderName might not be on the message doc directly
 }
 
 interface Channel {
     id: string;
     users: string[];
+    community: string;
+}
+
+interface UserProfile {
+    name: string;
+    lastName?: string;
+    email: string;
 }
 
 interface MessageListProps {
   currentUserId: string;
   selectedUserId: string;
   selectedUserName: string;
+  selectedCommunityId: string | null;
   onBack: () => void;
 }
 
-export function MessageList({ currentUserId, selectedUserId, selectedUserName, onBack }: MessageListProps) {
+export function MessageList({ currentUserId, selectedUserId, selectedUserName, selectedCommunityId, onBack }: MessageListProps) {
   const firestore = useFirestore();
   const [channelId, setChannelId] = useState<string | null>(null);
+  const [userProfiles, setUserProfiles] = useState<Record<string, UserProfile>>({});
+  const [isLoadingChannel, setIsLoadingChannel] = useState(true);
 
   useEffect(() => {
     const findChannel = async () => {
-        if (!currentUserId || !selectedUserId) return;
-
+        if (!currentUserId || !selectedUserId || !selectedCommunityId) {
+            setIsLoadingChannel(false);
+            return;
+        }
+        setIsLoadingChannel(true);
         const channelsRef = collection(firestore, 'channels');
-        // Firestore doesn't support array-contains-all, so we have to check for both permutations
-        const userArray1 = [currentUserId, selectedUserId];
-        const userArray2 = [selectedUserId, currentUserId];
-
-        const q1 = query(channelsRef, where('users', '==', userArray1), limit(1));
-        const q2 = query(channelsRef, where('users', '==', userArray2), limit(1));
-
-        const [snapshot1, snapshot2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-
-        if (!snapshot1.empty) {
-            setChannelId(snapshot1.docs[0].id);
-        } else if (!snapshot2.empty) {
-            setChannelId(snapshot2.docs[0].id);
-        } else {
+        // Query for channel belonging to the community and containing both users
+        const q = query(
+            channelsRef, 
+            where('community', '==', selectedCommunityId),
+            where('users', 'array-contains-any', [currentUserId, selectedUserId]),
+            limit(20) // Increased limit to be safe
+        );
+        
+        try {
+            const snapshot = await getDocs(q);
+            let foundChannelId = null;
+            for (const doc of snapshot.docs) {
+                const channel = doc.data() as Channel;
+                const users = channel.users || [];
+                // Ensure the channel contains BOTH users, not just one of them
+                if (users.includes(currentUserId) && users.includes(selectedUserId)) {
+                    foundChannelId = doc.id;
+                    break; 
+                }
+            }
+            setChannelId(foundChannelId);
+        } catch(e) {
+            console.error("Error finding channel: ", e);
             setChannelId(null);
+        } finally {
+            setIsLoadingChannel(false);
         }
     };
 
     findChannel();
-  }, [currentUserId, selectedUserId, firestore]);
+  }, [currentUserId, selectedUserId, selectedCommunityId, firestore]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!channelId) return null;
     return query(
-      collection(firestore, 'channels', channelId, 'messages'),
+      collection(firestore, 'messages'),
+      where('channel', '==', channelId),
       orderBy('createdAt', 'desc')
     );
   }, [channelId, firestore]);
 
-  const { data: messages, isLoading, error } = useCollection<Message>(messagesQuery);
+  const { data: messages, isLoading: isLoadingMessages, error } = useCollection<Message>(messagesQuery);
+  
+  const senderIds = useMemoFirebase(() => {
+    if (!messages) return [];
+    return [...new Set(messages.map(m => m.sender))];
+  }, [messages]);
+
+  useEffect(() => {
+      const fetchProfiles = async () => {
+        if (!senderIds || senderIds.length === 0) return;
+        const newProfiles: Record<string, UserProfile> = {};
+        
+        // This fetches profiles one by one. For production, consider a 'in' query if you have many messages from many users.
+        for (const id of senderIds) {
+            if (userProfiles[id]) continue; // Don't re-fetch
+            const userQuery = query(collection(firestore, 'users'), where('id', '==', id), limit(1));
+            const userSnapshot = await getDocs(userQuery);
+            if (!userSnapshot.empty) {
+                newProfiles[id] = userSnapshot.docs[0].data() as UserProfile;
+            }
+        }
+        if (Object.keys(newProfiles).length > 0) {
+            setUserProfiles(prev => ({...prev, ...newProfiles}));
+        }
+      };
+      fetchProfiles();
+  }, [senderIds, firestore, userProfiles]);
+
+
+  const getSenderName = (senderId: string) => {
+      if (senderId === currentUserId) return 'You';
+      const profile = userProfiles[senderId];
+      if (profile) return `${profile.name || ''} ${profile.lastName || ''}`.trim();
+      return selectedUserName; // Fallback to the name we already have
+  }
 
   const renderSkeleton = () => (
     <div className="space-y-4">
@@ -85,6 +144,8 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, o
     </div>
   );
 
+  const isLoading = isLoadingChannel || isLoadingMessages;
+
   return (
     <div className='h-full flex flex-col'>
         <div className='flex items-center mb-4'>
@@ -96,22 +157,26 @@ export function MessageList({ currentUserId, selectedUserId, selectedUserName, o
       
       {isLoading && renderSkeleton()}
       {error && <p className="text-destructive">Error: {error.message}</p>}
+
       {!isLoading && !error && messages && (
         <div className="space-y-4 flex-1 overflow-y-auto">
-          {messages.map((message) => (
-            <div key={message.id} className="flex items-start space-x-3 p-3 border rounded-md">
-               <Avatar>
-                    <AvatarFallback>{message.senderName ? message.senderName.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
-                </Avatar>
-              <div>
-                <p className="font-semibold">{message.senderName || 'Unknown Sender'}</p>
-                <p className="text-sm text-muted-foreground">
-                  {message.createdAt?.toDate ? new Date(message.createdAt.toDate()).toLocaleString() : 'No date'}
-                </p>
-                <p className="mt-1">{message.text}</p>
-              </div>
-            </div>
-          ))}
+          {messages.map((message) => {
+            const senderName = getSenderName(message.sender);
+            return (
+                <div key={message.id} className="flex items-start space-x-3 p-3 border rounded-md">
+                <Avatar>
+                        <AvatarFallback>{senderName ? senderName.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
+                    </Avatar>
+                <div>
+                    <p className="font-semibold">{senderName}</p>
+                    <p className="text-sm text-muted-foreground">
+                    {message.createdAt?.toDate ? new Date(message.createdAt.toDate()).toLocaleString() : 'No date'}
+                    </p>
+                    <p className="mt-1">{message.text}</p>
+                </div>
+                </div>
+            )
+          })}
           {messages.length === 0 && <p className='text-sm text-muted-foreground p-4 text-center'>No messages found in this conversation.</p>}
         </div>
       )}

@@ -64,28 +64,36 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Message",
       "type": "object",
-      "description": "Represents a message within a channel.",
+      "description": "Represents a message sent by a user.",
       "properties": {
         "text": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" }
+        "sender": { "type": "string", "description": "The UID of the user who sent the message." },
+        "channel": { "type": "string", "description": "The ID of the channel this message belongs to."}
       },
-      "required": ["text", "createdAt", "senderId"]
+      "required": ["text", "createdAt", "sender", "channel"]
     },
     "Channel": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Channel",
       "type": "object",
-      "description": "Represents a conversation channel between users.",
+      "description": "Represents a conversation channel, linking users to a community.",
       "properties": {
         "users": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "An array of user IDs participating in the channel."
+          "description": "An array containing the two user IDs in the conversation."
+        },
+        "user": {
+           "type": "string",
+           "description": "The user ID of the member in this channel"
+        },
+        "community": {
+            "type": "string",
+            "description": "The ID of the community this channel belongs to."
         }
       },
-      "required": ["users"]
+      "required": ["users", "community", "user"]
     }
   },
   "auth": {
@@ -121,14 +129,14 @@
         "path": "/channels/{channelId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/Channel" },
-          "description": "Collection for conversation channels."
+          "description": "Collection for conversation channels, linking a user to a community."
         }
       },
       {
-        "path": "/channels/{channelId}/messages/{messageId}",
+        "path": "/messages/{messageId}",
         "definition": {
-          "schema": { "$ref": "#/backend/entities/Message" },
-          "description": "Sub-collection for messages within a channel."
+          "schema": { "$ref": "#/backend/entities/Message"},
+          "description": "Root collection for all messages."
         }
       }
     ]

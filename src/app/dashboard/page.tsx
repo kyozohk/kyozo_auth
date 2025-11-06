@@ -93,7 +93,7 @@ export default function Dashboard() {
                               />
                             </div>
                             <MemberList
-                              usersList={selectedCommunity.usersList || []}
+                              communityId={selectedCommunity.id}
                               onMemberSelect={handleMemberSelect}
                               searchTerm={memberSearchTerm}
                               selectedMemberId={selectedMember?.id}
@@ -114,6 +114,7 @@ export default function Dashboard() {
                               currentUserId={user.uid}
                               selectedUserId={selectedMember.id}
                               selectedUserName={selectedMember.name}
+                              selectedCommunityId={selectedCommunity.id}
                               onBack={() => setSelectedMember(null)}
                             />
                           )}
