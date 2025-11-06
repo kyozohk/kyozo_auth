@@ -97,6 +97,7 @@ export default function Dashboard() {
                               onMemberSelect={handleMemberSelect}
                               searchTerm={memberSearchTerm}
                               selectedMemberId={selectedMember?.id}
+                              selectedCommunityId={selectedCommunity.id}
                             />
                         </div>
 

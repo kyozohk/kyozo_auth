@@ -56,7 +56,7 @@ export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: Use
 
   if (isLoading) {
     return (
-      <div className="flex items-center space-x-4 p-3">
+      <div className="flex items-center space-x-4 p-3 w-full">
         <Skeleton className="h-10 w-10 rounded-full" />
         <div className="space-y-2">
           <Skeleton className="h-4 w-[150px]" />
@@ -68,15 +68,15 @@ export function UserProfile({ userId, onSelect, isSelected, onProfileLoad }: Use
 
   if (!user) {
     return (
-      <div className="flex items-center space-x-4 p-3 opacity-50">
-        <Avatar>
-          <AvatarFallback>?</AvatarFallback>
-        </Avatar>
-        <div>
-          <p className="font-semibold">Unknown User</p>
-          <p className="text-sm text-muted-foreground">{userId}</p>
+        <div className="flex items-center space-x-4 p-3 opacity-50 w-full">
+            <Avatar>
+            <AvatarFallback>?</AvatarFallback>
+            </Avatar>
+            <div>
+            <p className="font-semibold">Unknown User</p>
+            <p className="text-sm text-muted-foreground">{userId}</p>
+            </div>
         </div>
-      </div>
     );
   }
   
