@@ -49,7 +49,7 @@ export async function getCommunities(): Promise<Community[]> {
     const db = await connectToDatabase();
     const communities = await db.collection('communities').find({}).limit(50).toArray();
     
-    // Convert non-serializable BSON types to plain objects for the client
+    // Convert non-serializable BSON types to plain objects for the client.
     // A simple round-trip through JSON.stringify/parse handles most BSON types from the driver.
     return JSON.parse(JSON.stringify(communities));
 }
