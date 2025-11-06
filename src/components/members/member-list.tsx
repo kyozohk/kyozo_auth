@@ -1,40 +1,19 @@
 'use client';
 
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query, where } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { useMemoFirebase } from '@/firebase/use-memo-firebase';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
 import { UserProfile } from '@/components/users/user-profile';
-import { ChevronLeft } from 'lucide-react';
 
-
-interface Participation {
-  id: string;
+interface Member {
   userId: string;
-  communityId: string;
+  // Other properties can be added here if needed from the usersList object
 }
 
 interface MemberListProps {
-  communityId: string;
+  usersList: Member[];
   onMemberSelect: (memberId: string, memberName: string) => void;
 }
 
-export function MemberList({ communityId, onMemberSelect }: MemberListProps) {
-  const firestore = useFirestore();
-  const participationsQuery = useMemoFirebase(() => {
-    return query(
-      collection(firestore, 'participations'),
-      where('communityId', '==', communityId)
-    );
-  }, [communityId, firestore]);
-
-  const {
-    data: participations,
-    isLoading,
-    error,
-  } = useCollection<Participation>(participationsQuery);
+export function MemberList({ usersList, onMemberSelect }: MemberListProps) {
 
   const renderSkeleton = () => (
     <div className="space-y-4">
@@ -56,18 +35,18 @@ export function MemberList({ communityId, onMemberSelect }: MemberListProps) {
             <h2 className="text-2xl font-bold">Members</h2>
         </div>
 
-      {isLoading && renderSkeleton()}
-      {error && <p className="text-destructive">Error: {error.message}</p>}
-      {!isLoading && !error && participations && (
+      {!usersList && renderSkeleton()}
+      
+      {usersList && (
         <div className="space-y-2">
-          {participations.map((participation) => (
+          {usersList.map((member) => (
             <UserProfile
-              key={participation.userId}
-              userId={participation.userId}
+              key={member.userId}
+              userId={member.userId}
               onSelect={onMemberSelect}
             />
           ))}
-          {participations.length === 0 && (
+          {usersList.length === 0 && (
             <p className="p-4 text-center text-sm text-muted-foreground">
               No members found in this community.
             </p>

@@ -7,11 +7,16 @@ import { MemberList } from '@/components/members/member-list';
 import { MessageList } from '@/components/messages/message-list';
 import { Card, CardContent } from '@/components/ui/card';
 
+interface Community {
+  id: string;
+  name: string;
+  usersList: { userId: string }[];
+  [key: string]: any;
+}
+
 export default function Dashboard() {
   const { user } = useUser();
-  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(
-    null
-  );
+  const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(
     null
   );
@@ -19,8 +24,8 @@ export default function Dashboard() {
     null
   );
 
-  const handleCommunitySelect = (communityId: string) => {
-    setSelectedCommunityId(communityId);
+  const handleCommunitySelect = (community: Community) => {
+    setSelectedCommunity(community);
     setSelectedMemberId(null); // Reset member when community changes
     setSelectedMemberName(null);
   };
@@ -31,7 +36,7 @@ export default function Dashboard() {
   };
 
   const handleBackToCommunities = () => {
-    setSelectedCommunityId(null);
+    setSelectedCommunity(null);
     setSelectedMemberId(null);
     setSelectedMemberName(null);
   }
@@ -49,24 +54,24 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
               <div className="md:col-span-1 lg:col-span-1">
                 <CommunityList
-                  selectedCommunityId={selectedCommunityId}
+                  selectedCommunityId={selectedCommunity?.id ?? null}
                   onCommunitySelect={handleCommunitySelect}
                 />
               </div>
               <div className="md:col-span-2 lg:col-span-3">
                 <Card className='h-full'>
                   <CardContent className="pt-6 h-full">
-                    {!selectedCommunityId && (
+                    {!selectedCommunity && (
                       <div className="flex flex-col items-center justify-center h-full">
                         <p className="text-muted-foreground">
                           Select a community to see its members.
                         </p>
                       </div>
                     )}
-                    {selectedCommunityId && !selectedMemberId && (
+                    {selectedCommunity && !selectedMemberId && (
                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           <MemberList
-                            communityId={selectedCommunityId}
+                            usersList={selectedCommunity.usersList || []}
                             onMemberSelect={handleMemberSelect}
                           />
                            <div className="hidden lg:flex flex-col items-center justify-center h-full">
@@ -76,7 +81,7 @@ export default function Dashboard() {
                             </div>
                        </div>
                     )}
-                    {selectedCommunityId && selectedMemberId && selectedMemberName &&(
+                    {selectedCommunity && selectedMemberId && selectedMemberName &&(
                       <MessageList
                         userId={selectedMemberId}
                         userName={selectedMemberName}

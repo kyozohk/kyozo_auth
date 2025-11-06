@@ -16,11 +16,12 @@ interface Community {
   id: string;
   name: string;
   createdAt: any;
+  [key: string]: any;
 }
 
 interface CommunityListProps {
     selectedCommunityId: string | null;
-    onCommunitySelect: (communityId: string) => void;
+    onCommunitySelect: (community: Community) => void;
 }
 
 export function CommunityList({ selectedCommunityId, onCommunitySelect }: CommunityListProps) {
@@ -70,7 +71,7 @@ export function CommunityList({ selectedCommunityId, onCommunitySelect }: Commun
                       "w-full justify-start",
                       selectedCommunityId === community.id && "bg-primary text-primary-foreground"
                   )}
-                  onClick={() => onCommunitySelect(community.id)}
+                  onClick={() => onCommunitySelect(community)}
                 >
                   {community.name}
                 </Button>
