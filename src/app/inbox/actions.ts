@@ -4,7 +4,7 @@ import { firestore } from '@/lib/firebase-admin';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
-import { getFirestore } from 'firebase-admin/firestore';
+
 
 // --- Firestore Types ---
 export interface Community {
@@ -60,8 +60,7 @@ export interface MessageMongo {
 // --- Firestore Actions ---
 
 export async function getCommunities(): Promise<Community[]> {
-    const db = getFirestore();
-    const snapshot = await db.collection('communities').where('name', '==', 'Digital Art Fair').get();
+    const snapshot = await firestore.collection('communities').where('name', '==', 'Digital Art Fair').get();
     return snapshot.docs.map(doc => ({
         id: doc.id,
         name: doc.data().name,
@@ -93,14 +92,13 @@ async function getUserProfile(db: FirebaseFirestore.Firestore, userId: string): 
 
 export async function getMembers(communityId: string): Promise<Member[]> {
     if (!communityId) return [];
-    const db = getFirestore();
-    const communityDoc = await db.collection('communities').doc(communityId).get();
+    const communityDoc = await firestore.collection('communities').doc(communityId).get();
     if (!communityDoc.exists) return [];
 
     const communityData = communityDoc.data();
     const usersList = communityData?.usersList || [];
 
-    const memberPromises = usersList.map((member: { userId: string }) => getUserProfile(db, member.userId));
+    const memberPromises = usersList.map((member: { userId: string }) => getUserProfile(firestore, member.userId));
     const members = await Promise.all(memberPromises);
 
     return members.filter((m): m is Member => m !== null);
@@ -108,11 +106,10 @@ export async function getMembers(communityId: string): Promise<Member[]> {
 
 export async function getMessagesForMember(communityId: string, memberId: string): Promise<Message[]> {
     if (!communityId || !memberId) return [];
-    const db = getFirestore();
     
-    const channelsRef = db.collection('channels');
+    const channelsRef = firestore.collection('channels');
     const q = query(
-        channelsRef,
+        channelsRef as any,
         where('community', '==', communityId),
         where('users', 'array-contains', memberId)
     );
@@ -131,9 +128,9 @@ export async function getMessagesForMember(communityId: string, memberId: string
 
     if (!channelId) return [];
     
-    const messagesRef = db.collection('messages');
+    const messagesRef = firestore.collection('messages');
     const messagesQuery = query(
-        messagesRef,
+        messagesRef as any,
         where('channel', '==', channelId),
         orderBy('createdAt', 'asc'),
         limit(100)
