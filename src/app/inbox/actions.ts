@@ -193,51 +193,59 @@ export async function getMembersMongo(communityId: string): Promise<MemberMongo[
 }
 
 export async function getMessagesForMemberMongo(communityId: string, memberId: string): Promise<MessageMongo[]> {
-  if (!communityId || !memberId) return [];
-  try {
-    const db = await connectToDatabase();
-    const memberObjectId = new ObjectId(memberId);
-    const communityObjectId = new ObjectId(communityId);
-
-    const channel = await db.collection('channels').findOne({
-      user: memberObjectId,
-      community: communityObjectId,
-    });
-
-    if (!channel) return [];
-
-    const messagesFromDb: any[] = await db.collection('messages').aggregate([
-      { $match: { channel: channel._id } },
-      { $sort: { createdAt: 1 } },
-      { $limit: 100 },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'user',
-          foreignField: '_id',
-          as: 'senderInfo'
-        }
-      },
-      { $unwind: { path: '$senderInfo', preserveNullAndEmptyArrays: true } }
-    ]).toArray();
-
-    return messagesFromDb.map((m: any) => {
-      const senderInfo = m.senderInfo || {};
-      return {
-        id: m._id.toString(),
-        text: m.text,
-        createdAt: m.createdAt.toISOString(),
-        sender: {
-          id: senderInfo._id?.toString() || m.user?.toString() || 'unknown',
-          uid: senderInfo.uid,
-          displayName: senderInfo.displayName || senderInfo.fullName || 'Unknown Sender',
-          photoURL: senderInfo.photoURL || senderInfo.profileImage,
+    if (!communityId || !memberId) return [];
+    try {
+      const db = await connectToDatabase();
+      const memberObjectId = new ObjectId(memberId);
+      const communityObjectId = new ObjectId(communityId);
+  
+      // Corrected query: Find channels where 'users' array contains the member's ObjectId
+      const channels = await db.collection('channels').find({
+        users: memberObjectId,
+        community: communityObjectId,
+      }).toArray();
+  
+      // Assuming we are interested in 1-on-1 chats for this context, 
+      // we might need to find the specific channel if a user can have multiple.
+      // For now, we'll aggregate messages from all found channels.
+      if (channels.length === 0) return [];
+  
+      const channelIds = channels.map(c => c._id);
+  
+      const messagesFromDb: any[] = await db.collection('messages').aggregate([
+        // Corrected match: use $in to find messages belonging to any of the user's channels
+        { $match: { channel: { $in: channelIds } } },
+        { $sort: { createdAt: 1 } },
+        { $limit: 100 },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user', // 'user' field in messages collection
+            foreignField: '_id',
+            as: 'senderInfo'
+          }
         },
-        data: JSON.parse(JSON.stringify(m)),
-      };
-    });
-  } catch (error) {
-    console.error(`Failed to get mongo messages for member ${memberId}:`, error);
-    return [];
+        { $unwind: { path: '$senderInfo', preserveNullAndEmptyArrays: true } }
+      ]).toArray();
+  
+      return messagesFromDb.map((m: any) => {
+        const senderInfo = m.senderInfo || {};
+        return {
+          id: m._id.toString(),
+          text: m.text,
+          createdAt: m.createdAt.toISOString(),
+          sender: {
+            id: senderInfo._id?.toString() || m.user?.toString() || 'unknown',
+            uid: senderInfo.uid || senderInfo.firebaseUid,
+            displayName: senderInfo.displayName || senderInfo.fullName || 'Unknown Sender',
+            photoURL: senderInfo.photoURL || senderInfo.profileImage,
+          },
+          data: JSON.parse(JSON.stringify(m)),
+        };
+      });
+    } catch (error) {
+      console.error(`Failed to get mongo messages for member ${memberId}:`, error);
+      return [];
+    }
   }
-}
+  
