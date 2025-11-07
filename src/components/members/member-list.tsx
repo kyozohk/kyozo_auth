@@ -32,9 +32,9 @@ export function MemberList({ members, onMemberSelect, searchTerm, selectedMember
   const [userProfiles, setUserProfiles] = React.useState<Record<string, UserProfileData>>({});
   const { toast } = useToast();
 
-  const handleProfileLoad = (userId: string, profile: UserProfileData) => {
+  const handleProfileLoad = React.useCallback((userId: string, profile: UserProfileData) => {
     setUserProfiles(prev => ({...prev, [userId]: profile}));
-  };
+  }, []);
   
   const handleCopy = (e: React.MouseEvent, userProfile: UserProfileData) => {
     e.stopPropagation();

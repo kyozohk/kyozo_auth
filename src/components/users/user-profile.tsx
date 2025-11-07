@@ -22,7 +22,7 @@ interface UserProfileData {
 
 interface UserProfileProps {
   userId: string; // Expecting Firebase UID
-  onSelect: (userId: string, userName: string) => void;
+  onSelect: (userId: string, userName:string) => void;
   isSelected?: boolean;
   onProfileLoad?: (userId: string, profile: UserProfileData) => void;
 }
