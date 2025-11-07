@@ -47,6 +47,9 @@ export default function Dashboard() {
             <div className="flex justify-between items-center mb-2">
               <h1 className="text-3xl font-bold">Dashboard</h1>
               <div className="flex gap-2">
+                <Link href="/inbox" passHref>
+                  <Button variant="outline">Go to Inbox</Button>
+                </Link>
                 <Link href="/compare" passHref>
                   <Button variant="outline">Go to Compare</Button>
                 </Link>
