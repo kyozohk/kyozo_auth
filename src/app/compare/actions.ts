@@ -63,7 +63,7 @@ async function getFirestoreUser(userId: string): Promise<any | null> {
 
 export async function getFirestoreCommunitiesWithMembers(): Promise<FirestoreCommunityWithMembers[]> {
     try {
-        const communitiesSnapshot = await firestore.collection('communities').where('name', '==', 'Souta').limit(1).get();
+        const communitiesSnapshot = await firestore.collection('communities').get();
         if (communitiesSnapshot.empty) {
             return [];
         }
@@ -111,8 +111,7 @@ export async function getMongoCommunitiesWithMembers(): Promise<MongoCommunityWi
         const db = await connectToDatabase();
         const communities = await db
             .collection('communities')
-            .find({ name: 'Souta' })
-            .limit(1)
+            .find({})
             .toArray();
 
         if (communities.length === 0) return [];
