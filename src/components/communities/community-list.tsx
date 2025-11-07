@@ -19,6 +19,7 @@ interface Community {
   name: string;
   communityProfileImage?: string;
   createdAt: any;
+  usersList?: any[];
   [key: string]: any;
 }
 
@@ -92,7 +93,12 @@ export function CommunityList({ selectedCommunityId, onCommunitySelect, searchTe
                         <AvatarImage src={community.communityProfileImage} alt={community.name} />
                         <AvatarFallback>{community.name.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <span className='truncate'>{community.name}</span>
+                    <div className="flex-1 truncate">
+                        <span className='truncate font-semibold'>{community.name}</span>
+                        <p className="text-xs text-muted-foreground">
+                            {community.usersList?.length || 0} members
+                        </p>
+                    </div>
                     </div>
                 </Button>
                 <Button
