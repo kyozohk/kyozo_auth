@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
+import { getAuth, signOut } from 'firebase/auth';
 import { CommunityList } from '@/components/communities/community-list';
 import { MemberList } from '@/components/members/member-list';
 import { MessageList } from '@/components/messages/message-list';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Community {
@@ -20,6 +22,7 @@ interface Community {
 
 export default function Dashboard() {
   const { user, isUserLoading } = useUser();
+  const router = useRouter();
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   const [selectedMember, setSelectedMember] = useState<{ id: string; name: string } | null>(null);
   const [communitySearchTerm, setCommunitySearchTerm] = useState('');
@@ -33,6 +36,12 @@ export default function Dashboard() {
 
   const handleMemberSelect = (memberId: string, memberName: string) => {
     setSelectedMember({ id: memberId, name: memberName });
+  };
+
+  const handleLogout = async () => {
+    const auth = getAuth();
+    await signOut(auth);
+    router.push('/login');
   };
   
   if (isUserLoading) {
@@ -56,6 +65,10 @@ export default function Dashboard() {
                 <Link href="/mongo" passHref>
                   <Button variant="outline">Go to Mongo</Button>
                 </Link>
+                <Button variant="outline" onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </Button>
               </div>
             </div>
 
