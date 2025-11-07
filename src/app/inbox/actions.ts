@@ -61,7 +61,7 @@ export interface MessageMongo {
 
 export async function getCommunities(): Promise<Community[]> {
     const db = getFirestore();
-    const snapshot = await db.collection('communities').orderBy('name').get();
+    const snapshot = await db.collection('communities').where('name', '==', 'Digital Art Fair').get();
     return snapshot.docs.map(doc => ({
         id: doc.id,
         name: doc.data().name,
@@ -158,7 +158,7 @@ export async function getMessagesForMember(communityId: string, memberId: string
 export async function getCommunitiesMongo(): Promise<CommunityMongo[]> {
   try {
     const db = await connectToDatabase();
-    const communities = await db.collection('communities').find({}).sort({ name: 1 }).toArray();
+    const communities = await db.collection('communities').find({ name: 'Digital Art Fair' }).toArray();
     return communities.map((c) => ({
       id: c._id.toString(),
       name: c.name,
